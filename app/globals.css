@@ -21,3 +21,63 @@ body {
 .animate-fadeIn {
     animation: fadeIn 0.2s ease-out forwards;
 }
+
+
+/* Custom dropdown styles to fix blue hover */
+select {
+    background-color: #242424;
+    color: white;
+  }
+
+  select option {
+    background-color: #242424;
+    color: white;
+    padding: 12px;
+  }
+
+  select option:hover {
+    background-color: #C9F300 !important;
+    color: #121212 !important;
+  }
+
+  select option:checked,
+  select option:focus {
+    background-color: #9EFF00 !important;
+    color: #121212 !important;
+  }
+
+  /* For Firefox */
+  @-moz-document url-prefix() {
+    select {
+      color: white;
+      text-shadow: 0 0 0 white;
+    }
+
+    select option {
+      background-color: #242424;
+      color: white;
+    }
+
+    select option:hover {
+      background-color: #C9F300 !important;
+      color: #121212 !important;
+    }
+  }
+
+  /* For WebKit browsers (Chrome, Safari) */
+  select::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  select::-webkit-scrollbar-track {
+    background: #1A1A1A;
+  }
+
+  select::-webkit-scrollbar-thumb {
+    background: #C9F300;
+    border-radius: 4px;
+  }
+
+  select::-webkit-scrollbar-thumb:hover {
+    background: #9EFF00;
+  }
