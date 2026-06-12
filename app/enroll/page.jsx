@@ -121,37 +121,6 @@ export default function EnrollPage() {
                     {/* Main card */}
                     <div className={`lg:col-span-2 rounded-xl ${surface} ${border} p-5`}>
                         {/* Step 1 */}
-                        {/* {step === 1 && (
-              <div className="space-y-5">
-                <Section title="National ID Lookup" subtitle="Enter the NID to fetch registered SIMs." />
-                <div className="space-y-3">
-                  <label className={`block text-sm ${text}`}>National ID</label>
-                  <input
-                    value={nid}
-                    onChange={(e) => setNid(e.target.value)}
-                    placeholder="1990123456789"
-                    className={`w-full ${inputBg} ${border} rounded-lg px-3 py-2 text-sm ${text} placeholder-[#6B6B6B] ${focusRing}`}
-                  />
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={findVoter}
-                      disabled={loading}
-                      className={`inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium ${primary} ${primaryHover} disabled:opacity-60 disabled:cursor-not-allowed transition`}
-                    >
-                      {loading ? 'Looking up…' : 'Lookup NID'}
-                    </button>
-                    <p className={`text-xs ${textMuted}`}>
-                      If already enrolled, you can{' '}
-                      <a href="/login" className="underline underline-offset-4 hover:text-[#EDEDED]">
-                        log in here
-                      </a>.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )} */}
-
-
                         {step === 1 && (
                             <div className="space-y-6">
                                 {/* Header Section */}

@@ -10,6 +10,7 @@ const VoterSchema = new mongoose.Schema({
     credentialSecret: { type: String, default: null },
     credentialCommitment: { type: String, default: null },
     revocationHandle: { type: String, default: null },
+    disabled: { type: Boolean, default: false },  
 }, { timestamps: true });
 
 export default mongoose.models.Voter || mongoose.model('Voter', VoterSchema);
