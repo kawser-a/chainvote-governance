@@ -1,245 +1,118 @@
-
-
-// 'use client';
-// import { useEffect, useMemo, useState } from 'react';
-// import Link from 'next/link';
-
-// function sections(elections) {
-//     const now = Date.now();
-//     const up = [];
-//     const on = [];
-//     const past = [];
-
-//     for (const e of elections) {
-//         const s = Date.parse(e.startAt);
-//         const end = Date.parse(e.endAt);
-//         if (end < now) past.push(e);
-//         else if (s > now) up.push(e);
-//         else on.push(e);
-//     }
-//     // sort: upcoming by start time asc, ongoing by end asc, past by end desc
-//     up.sort((a, b) => Date.parse(a.startAt) - Date.parse(b.startAt));
-//     on.sort((a, b) => Date.parse(a.endAt) - Date.parse(b.endAt));
-//     past.sort((a, b) => Date.parse(b.endAt) - Date.parse(a.endAt));
-
-//     return { upcoming: up, ongoing: on, past };
-// }
-
-// function msToHhmm(ms) {
-//     if (ms <= 0) return '0m';
-//     const mins = Math.floor(ms / 60000);
-//     const h = Math.floor(mins / 60);
-//     const m = mins % 60;
-//     return `${h ? `${h}h ` : ''}${m}m`;
-// }
-// function remainingLabel(e) {
-//     const now = Date.now();
-//     const s = Date.parse(e.startAt);
-//     const end = Date.parse(e.endAt);
-//     if (now < s) return `Starts in ${msToHhmm(s - now)}`;
-//     if (now > end) return `Ended ${msToHhmm(now - end)} ago`;
-//     return `${msToHhmm(end - now)} left`;
-// }
-
-// export default function VoterElections() {
-//     const [list, setList] = useState([]);
-//     const [loading, setLoading] = useState(true);
-
-//     useEffect(() => {
-//         (async () => {
-//             setLoading(true);
-//             const r = await fetch('/api/elections', { cache: 'no-store', credentials: 'include' });
-//             const j = await r.json();
-//             if (j.ok) setList(j.data || []);
-//             setLoading(false);
-//         })();
-//     }, []);
-
-//     const grouped = useMemo(() => sections(list), [list]);
-
-//     if (loading) return <div className="text-[#A1A1A1]">Loading…</div>;
-
-//     return (
-//         <div className="space-y-8">
-//             <h1 className="text-white text-xl font-semibold">Elections</h1>
-
-//             {/* Ongoing */}
-//             <Section title="Ongoing Elections" items={grouped.ongoing} empty="No ongoing elections">
-//                 {(e) => (
-//                     <ElectionCard e={e}>
-//                         <div className="text-[#C9F300] text-xs mt-1">{remainingLabel(e)}</div>
-//                         <Link href={`/elections/${e._id}`} className="inline-block mt-2 px-3 py-1 rounded-lg bg-[#C9F300] text-black text-sm">
-//                             Go vote →
-//                         </Link>
-//                     </ElectionCard>
-//                 )}
-//             </Section>
-
-//             {/* Upcoming */}
-//             <Section title="Upcoming Elections" items={grouped.upcoming} empty="No upcoming elections">
-//                 {(e) => (
-//                     <ElectionCard e={e}>
-//                         <div className="text-[#A1A1A1] text-xs mt-1">{remainingLabel(e)}</div>
-//                         <Link href={`/elections/${e._id}`} className="inline-block mt-2 px-3 py-1 rounded-lg bg-[#1F1F1F] border border-[#2A2A2A] text-[#EDEDED] text-sm">
-//                             Preview →
-//                         </Link>
-//                     </ElectionCard>
-//                 )}
-//             </Section>
-
-//             {/* Past */}
-//             <Section title="Past Elections" items={grouped.past} empty="No past elections">
-//                 {(e) => (
-//                     <ElectionCard e={e}>
-//                         <div className="text-[#A1A1A1] text-xs mt-1">{remainingLabel(e)}</div>
-//                         <Link href={`/elections/${e._id}/results`} className="inline-block mt-2 px-3 py-1 rounded-lg bg-[#1F1F1F] border border-[#2A2A2A] text-[#EDEDED] text-sm">
-//                             View Results →
-//                         </Link>
-//                     </ElectionCard>
-//                 )}
-//             </Section>
-//         </div>
-//     );
-// }
-
-// function Section({ title, items, empty, children }) {
-//     return (
-//         <section>
-//             <h2 className="text-white font-semibold mb-2">{title}</h2>
-//             {items.length === 0 ? (
-//                 <div className="rounded-xl border border-[#2A2A2A] bg-[#171717] p-4 text-[#A1A1A1]">{empty}</div>
-//             ) : (
-//                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-//                     {items.map((e) => <div key={e._id}>{children(e)}</div>)}
-//                 </div>
-//             )}
-//         </section>
-//     );
-// }
-
-// function ElectionCard({ e, children }) {
-//     return (
-//         <div className="rounded-xl border border-[#2A2A2A] p-4 bg-[#171717]">
-//             <div className="text-white font-medium">{e.name}</div>
-//             <div className="text-[#A1A1A1] text-sm capitalize">{e.type} • {e.ballotType}</div>
-//             <div className="text-[#A1A1A1] text-xs mt-1">Start: {new Date(e.startAt).toLocaleString()}</div>
-//             <div className="text-[#A1A1A1] text-xs">End: {new Date(e.endAt).toLocaleString()}</div>
-//             {children}
-//         </div>
-//     );
-// }
-
-// /app/elections/page.jsx
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { ChevronRight, Vote } from 'lucide-react';
+import { Alert, Button, Card, EmptyState, Loading, PageHeader, StatusBadge } from '../components/ui/primitives';
+import { Segmented } from '../components/ui/interactive';
+import { electionPhase, formatDateTime, phaseLabel, titleCase } from '../components/ui/format';
 
-function sections(elections) {
-  const now = Date.now();
-  const up = [], on = [], past = [];
-  for (const e of elections) {
-    const s = Date.parse(e.startAt);
-    const end = Date.parse(e.endAt);
-    if (e.status === 'completed' || end < now) past.push(e);
-    else if (s > now) up.push(e);
-    else on.push(e);
-  }
-  up.sort((a, b) => Date.parse(a.startAt) - Date.parse(b.startAt));
-  on.sort((a, b) => Date.parse(a.endAt) - Date.parse(b.endAt));
-  past.sort((a, b) => Date.parse(b.endAt) - Date.parse(a.endAt));
-  return { upcoming: up, ongoing: on, past };
+function group(list) {
+    const now = Date.now();
+    const out = { open: [], upcoming: [], past: [] };
+    for (const e of list) {
+        const p = electionPhase(e, now);
+        if (p === 'active' || p === 'paused') out.open.push(e);
+        else if (p === 'upcoming') out.upcoming.push(e);
+        else out.past.push(e);
+    }
+    out.open.sort((a, b) => Date.parse(a.endAt) - Date.parse(b.endAt));
+    out.upcoming.sort((a, b) => Date.parse(a.startAt) - Date.parse(b.startAt));
+    out.past.sort((a, b) => Date.parse(b.endAt) - Date.parse(a.endAt));
+    return out;
 }
-function msToHhmm(ms) { if (ms <= 0) return '0m'; const mins = Math.floor(ms / 60000); const h = Math.floor(mins / 60); const m = mins % 60; return `${h ? `${h}h ` : ''}${m}m`; }
-function remainingLabel(e) {
-  const now = Date.now();
-  const s = Date.parse(e.startAt);
-  const end = Date.parse(e.endAt);
-  if (now < s) return `Starts in ${msToHhmm(s - now)}`;
-  if (now > end) return `Ended ${msToHhmm(now - end)} ago`;
-  return `${msToHhmm(end - now)} left`;
-}
+
+const EMPTY = {
+    open: ['No elections are open', 'When voting opens in an election you’re eligible for, it will appear here.'],
+    upcoming: ['Nothing scheduled', 'There are no upcoming elections for your constituency yet.'],
+    past: ['No past elections', 'Elections from the last 12 months will appear here once they end.'],
+};
 
 export default function VoterElections() {
-  const [list, setList] = useState([]);
-  const [loading, setLoading] = useState(true);
+    const [list, setList] = useState([]);
+    const [state, setState] = useState('loading');
+    const [tab, setTab] = useState(null);
 
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      const r = await fetch('/api/elections?includePast=1', { cache: 'no-store', credentials: 'include' });
-      const j = await r.json();
-      if (j.ok) setList(j.data || []);
-      setLoading(false);
-    })();
-  }, []);
+    async function load() {
+        setState('loading');
+        try {
+            const r = await fetch('/api/elections?includePast=1', { cache: 'no-store', credentials: 'include' });
+            const j = await r.json();
+            if (!j.ok) throw new Error();
+            setList(j.data || []);
+            setState('ready');
+        } catch {
+            setState('error');
+        }
+    }
 
-  const grouped = useMemo(() => sections(list), [list]);
+    useEffect(() => {
+        load();
+    }, []);
 
-  if (loading) return <div className="text-[#A1A1A1]">Loading…</div>;
+    const grouped = useMemo(() => group(list), [list]);
+    const active = tab || (grouped.open.length ? 'open' : grouped.upcoming.length ? 'upcoming' : grouped.past.length ? 'past' : 'open');
+    const rows = grouped[active];
 
-  return (
-    <div className="space-y-8">
-      <h1 className="text-white text-xl font-semibold">Elections</h1>
+    return (
+        <>
+            <PageHeader title="Elections" description="Elections you’re eligible to vote in, based on your constituency." />
 
-      <Section title="Ongoing Elections" items={grouped.ongoing} empty="No ongoing elections">
-        {(e) => (
-          <ElectionCard e={e}>
-            <div className="text-[#C9F300] text-xs mt-1">{remainingLabel(e)}</div>
-            <Link href={`/elections/${e._id}`} className="inline-block mt-2 px-3 py-1 rounded-lg bg-[#C9F300] text-black text-sm">
-              Go vote →
-            </Link>
-          </ElectionCard>
-        )}
-      </Section>
+            {state === 'loading' && <Loading label="Loading elections…" />}
 
-      <Section title="Upcoming Elections" items={grouped.upcoming} empty="No upcoming elections">
-        {(e) => (
-          <ElectionCard e={e}>
-            <div className="text-[#A1A1A1] text-xs mt-1">{remainingLabel(e)}</div>
-            <Link href={`/elections/${e._id}`} className="inline-block mt-2 px-3 py-1 rounded-lg bg-[#1F1F1F] border border-[#2A2A2A] text-[#EDEDED] text-sm">
-              Preview →
-            </Link>
-          </ElectionCard>
-        )}
-      </Section>
+            {state === 'error' && (
+                <Alert tone="danger" title="We couldn’t load your elections" action={<Button variant="secondary" size="sm" onClick={load}>Try again</Button>}>
+                    Check your connection. If you were away for a while, you may need to sign in again.
+                </Alert>
+            )}
 
-      <Section title="Past Elections" items={grouped.past} empty="No past elections">
-        {(e) => (
-          <ElectionCard e={e}>
-            <div className="text-[#A1A1A1] text-xs mt-1">{remainingLabel(e)}</div>
-            <Link href={`/elections/${e._id}/results`} className="inline-block mt-2 px-3 py-1 rounded-lg bg-[#1F1F1F] border border-[#2A2A2A] text-[#EDEDED] text-sm">
-              View Results →
-            </Link>
-          </ElectionCard>
-        )}
-      </Section>
-    </div>
-  );
-}
-
-function Section({ title, items, empty, children }) {
-  return (
-    <section>
-      <h2 className="text-white font-semibold mb-2">{title}</h2>
-      {items.length === 0 ? (
-        <div className="rounded-xl border border-[#2A2A2A] bg-[#171717] p-4 text-[#A1A1A1]">{empty}</div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {items.map((e) => <div key={e._id}>{children(e)}</div>)}
-        </div>
-      )}
-    </section>
-  );
-}
-
-function ElectionCard({ e, children }) {
-  return (
-    <div className="rounded-xl border border-[#2A2A2A] p-4 bg-[#171717]">
-      <div className="text-white font-medium">{e.name}</div>
-      <div className="text-[#A1A1A1] text-sm capitalize">{e.type} • {e.ballotType}</div>
-      <div className="text-[#A1A1A1] text-xs mt-1">Start: {new Date(e.startAt).toLocaleString()}</div>
-      <div className="text-[#A1A1A1] text-xs">End: {new Date(e.endAt).toLocaleString()}</div>
-      {children}
-    </div>
-  );
+            {state === 'ready' && (
+                <>
+                    <Segmented
+                        label="Filter elections"
+                        value={active}
+                        onChange={setTab}
+                        className="mb-4"
+                        options={[
+                            { value: 'open', label: 'Open now', count: grouped.open.length },
+                            { value: 'upcoming', label: 'Upcoming', count: grouped.upcoming.length },
+                            { value: 'past', label: 'Past', count: grouped.past.length },
+                        ]}
+                    />
+                    <Card>
+                        {rows.length === 0 ? (
+                            <EmptyState icon={Vote} title={EMPTY[active][0]}>{EMPTY[active][1]}</EmptyState>
+                        ) : (
+                            <ul className="divide-y divide-line">
+                                {rows.map((e) => {
+                                    const phase = electionPhase(e);
+                                    const href = phase === 'ended' ? `/elections/${e._id}/results` : `/elections/${e._id}`;
+                                    const action = phase === 'active' ? 'Vote' : phase === 'ended' ? 'See results' : 'Preview ballot';
+                                    return (
+                                        <li key={e._id}>
+                                            <Link href={href} className="group flex items-center gap-4 px-4 py-4 hover:bg-subtle/60 sm:px-6">
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <p className="font-semibold text-ink group-hover:underline">{e.name}</p>
+                                                        <StatusBadge status={phase} />
+                                                    </div>
+                                                    <p className="mt-1 text-sm text-ink-2">
+                                                        {phaseLabel(e)} · {titleCase(e.type)} · {titleCase(e.ballotType)} ballot
+                                                    </p>
+                                                    <p className="mt-0.5 text-sm text-ink-3">
+                                                        {formatDateTime(e.startAt)} to {formatDateTime(e.endAt)}
+                                                    </p>
+                                                </div>
+                                                <span className="hidden shrink-0 text-sm font-semibold text-brand sm:inline">{action}</span>
+                                                <ChevronRight className="h-5 w-5 shrink-0 text-ink-3" aria-hidden="true" />
+                                            </Link>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                        )}
+                    </Card>
+                </>
+            )}
+        </>
+    );
 }

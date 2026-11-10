@@ -1,68 +1,38 @@
-// import { Inter } from "next/font/google";
-// import "./globals.css";
-// import Header from "./components/header";
-// import { AuthProvider } from "./context/AuthContext";
-// import { AdminAuthProvider } from "./context/AdminAuthContext";
-
-// const inter = Inter({
-//     subsets: ['latin'],
-//     display: 'swap',
-//     variable: '--font-inter',
-//     fallback: ['system-ui', 'arial']
-// })
-
-// export const metadata = {
-//     title: "ChainVote: A Blockchain-Powered Participatory Governance System",
-//     description: "ChainVote is an open-source participatory governance system built on blockchain technology.",
-// };
-
-// export default function RootLayout({ children }) {
-
-//     return (
-//         <html lang="en">
-//             <body className={`${inter.className} `}>
-//                 <AuthProvider>
-//                     <AdminAuthProvider>
-//                     <Header />
-//                     <main className="min-h-screen">
-//                         {children}
-//                     </main>
-//                     <footer />
-//                     </AdminAuthProvider>
-//                 </AuthProvider>
-//             </body>
-//         </html>
-//     );
-// }
-
-
-import { Inter } from "next/font/google";
+import { Public_Sans } from "next/font/google";
 import "./globals.css";
-import Header from "./components/header";
 import { AuthProvider } from "./context/AuthContext";
-import { AdminAuthProvider } from "./context/AdminAuthContext";
+import { ToastProvider } from "./components/ui/interactive";
 import LayoutWrapper from "./components/LayoutWrapper";
 
-const inter = Inter({
+const publicSans = Public_Sans({
     subsets: ["latin"],
     display: "swap",
-    variable: "--font-inter",
+    variable: "--font-public-sans",
 });
 
 export const metadata = {
-    title: "ChainVote: A Blockchain-Powered Participatory Governance System",
+    title: {
+        default: "ChainVote: vote on what candidates promise",
+        template: "%s · ChainVote",
+    },
     description:
-        "ChainVote is an open-source participatory governance system built on blockchain technology.",
+        "Enroll with your National ID, compare candidates' written commitments, cast your vote and follow up with petitions if promises aren't kept.",
+};
+
+export const viewport = {
+    width: "device-width",
+    initialScale: 1,
+    themeColor: "#ffffff",
 };
 
 export default function RootLayout({ children }) {
     return (
-        <html lang="en">
-            <body className={inter.className} suppressHydrationWarning>
+        <html lang="en" className={publicSans.variable}>
+            <body suppressHydrationWarning>
                 <AuthProvider>
-                    <AdminAuthProvider>
+                    <ToastProvider>
                         <LayoutWrapper>{children}</LayoutWrapper>
-                    </AdminAuthProvider>
+                    </ToastProvider>
                 </AuthProvider>
             </body>
         </html>

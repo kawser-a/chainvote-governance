@@ -41,7 +41,7 @@ export async function GET(req) {
       { $unwind: '$m' },
       {
         $project: {
-          voterNid: 1, reason: 1, status: 1, createdAt: 1,
+          reason: 1, status: 1, createdAt: 1,
           election: { _id: '$e._id', name: '$e.name' },
           manifesto: { _id: '$m._id', title: '$m.title', targetWindowMonths: '$m.targetWindowMonths' },
         }

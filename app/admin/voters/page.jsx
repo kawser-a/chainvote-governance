@@ -1,357 +1,210 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { IdCard, Search } from 'lucide-react';
+import { Alert, Badge, Button, Card, CardBody, EmptyState, Input, Loading, PageHeader, Select } from '../../components/ui/primitives';
+import { ConfirmDialog, DataTable, Pagination, Segmented, useToast } from '../../components/ui/interactive';
+
+const FILTERS = [
+    { value: 'all', label: 'All', q: {} },
+    { value: 'enrolled', label: 'Enrolled', q: { registered: 'true' } },
+    { value: 'not_enrolled', label: 'Not enrolled', q: { registered: 'false' } },
+    { value: 'disabled', label: 'Voting disabled', q: { canVote: 'false', banned: 'false' } },
+    { value: 'banned', label: 'Banned', q: { banned: 'true' } },
+];
+
+function VotingBadge({ v }) {
+    if (v.isBanned) return <Badge tone="danger">Banned</Badge>;
+    if (v.canVote === false) return <Badge tone="warning">Voting disabled</Badge>;
+    if (!v.enrollmentDone) return <Badge>Can’t vote until enrolled</Badge>;
+    return <Badge tone="success">Can vote</Badge>;
+}
 
 export default function ManageVotersPage() {
-    const [data, setData] = useState([]);
+    const { notify } = useToast();
+    const [rows, setRows] = useState([]);
+    const [state, setState] = useState('loading');
     const [page, setPage] = useState(1);
-    const [limit] = useState(20);
     const [totalPages, setTotalPages] = useState(1);
     const [total, setTotal] = useState(0);
+    const [searchInput, setSearchInput] = useState('');
     const [search, setSearch] = useState('');
-    const [sortBy, setSortBy] = useState('seat');
-    const [sortOrder, setSortOrder] = useState('asc');
     const [seat, setSeat] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [flags, setFlags] = useState({ registered: '', banned: '', canVote: '' });
     const [seats, setSeats] = useState([]);
+    const [filter, setFilter] = useState('all');
+    const [sortBy, setSortBy] = useState('seat');
+    const [banning, setBanning] = useState(null);
+    const [busy, setBusy] = useState(false);
 
-    // Construct query string
-    const query = new URLSearchParams({
-        page: String(page),
-        limit: String(limit),
-        sortBy,
-        sortOrder,
-        ...(search ? { search } : {}),
-        ...(seat ? { seat } : {}),
-        ...(flags.registered !== '' ? { registered: flags.registered } : {}),
-        ...(flags.banned !== '' ? { banned: flags.banned } : {}),
-        ...(flags.canVote !== '' ? { canVote: flags.canVote } : {}),
-    }).toString();
-
-    // Fetch voters data
     useEffect(() => {
-        let isMounted = true;
-        setLoading(true);
-        fetch(`/api/admin/voters?${query}`, { cache: 'no-store' })
-            .then(res => res.json())
-            .then(json => {
-                if (isMounted && json?.ok) {
-                    setData(json.data);
-                    setTotal(json.total);
-                    setTotalPages(json.totalPages);
-                }
-            })
-            .catch(() => { if (isMounted) setData([]); })
-            .finally(() => { if (isMounted) setLoading(false); });
-        return () => { isMounted = false; };
-    }, [query]);
+        const t = setTimeout(() => { setPage(1); setSearch(searchInput.trim()); }, 300);
+        return () => clearTimeout(t);
+    }, [searchInput]);
 
-    // Fetch seats list
     useEffect(() => {
-        let isMounted = true;
-        fetch("/api/admin/stats", { cache: 'no-store' })
-            .then(res => res.json())
-            .then(json => {
-                if (isMounted && json?.ok) {
-                    setSeats(json.seats.map(s => s.seat));
-                }
-            });
-        return () => { isMounted = false; };
+        fetch('/api/admin/stats', { cache: 'no-store' })
+            .then((r) => r.json())
+            .then((j) => j?.ok && setSeats((j.seats || []).map((s) => s.seat).filter(Boolean).sort()))
+            .catch(() => {});
     }, []);
 
-    // Toggle fields (registered, banned, canVote)
-    async function toggleStatus(nid, patch) {
-        await fetch(`/api/admin/voters/${nid}/status`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
+    const load = useCallback(async () => {
+        setState((s) => (s === 'ready' ? 'refreshing' : 'loading'));
+        const q = new URLSearchParams({
+            page: String(page),
+            limit: '20',
+            sortBy,
+            sortOrder: 'asc',
+            ...(search ? { search } : {}),
+            ...(seat ? { seat } : {}),
+            ...FILTERS.find((f) => f.value === filter).q,
+        });
+        try {
+            const r = await fetch(`/api/admin/voters?${q}`, { cache: 'no-store' });
+            const j = await r.json();
+            if (!j.ok) throw new Error();
+            setRows(j.data || []);
+            setTotal(j.total || 0);
+            setTotalPages(j.totalPages || 1);
+            setState('ready');
+        } catch {
+            setState('error');
+        }
+    }, [page, sortBy, search, seat, filter]);
+
+    useEffect(() => {
+        load();
+    }, [load]);
+
+    async function update(v, patch) {
+        const r = await fetch(`/api/admin/voters/${v.nid}/status`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(patch),
         });
-        // Refresh data after update
-        setLoading(true);
-        const res = await fetch(`/api/admin/voters?${query}`, { cache: "no-store" });
-        const json = await res.json();
-        if (json?.ok) {
-            setData(json.data);
-            setTotal(json.total);
-            setTotalPages(json.totalPages);
-        }
-        setLoading(false);
+        const j = await r.json();
+        if (!j.ok) throw new Error(j.error || 'Update failed');
+        await load();
     }
 
+    async function toggleVoting(v) {
+        const next = !v.canVote;
+        try {
+            await update(v, { canVote: next });
+            notify(next ? `${v.name} can vote again.` : `Voting disabled for ${v.name}.`, {
+                duration: 8000,
+                action: { label: 'Undo', onClick: () => update(v, { canVote: !next }).catch(() => {}) },
+            });
+        } catch (err) {
+            notify(err.message, { tone: 'danger' });
+        }
+    }
+
+    async function confirmBan() {
+        setBusy(true);
+        const v = banning;
+        try {
+            await update(v, { isBanned: !v.isBanned, ...(v.isBanned ? { canVote: true } : {}) });
+            notify(v.isBanned ? `Ban lifted for ${v.name}.` : `${v.name} has been banned from voting.`);
+            setBanning(null);
+        } catch (err) {
+            notify(err.message, { tone: 'danger' });
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    const changeFilter = (f) => { setPage(1); setFilter(f); };
+
     return (
-        <section className="px-8 py-6 space-y-6 max-w-full overflow-x-auto text-gray-100">
-            <h1 className="text-3xl font-extrabold tracking-tight">Manage Voters</h1>
+        <>
+            <PageHeader title="Voters" description="Everyone on the voter roll, whether they’ve enrolled, and whether they can vote." />
 
-            {/* Filter bar */}
-            {/* <form className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-8 gap-4 mb-4 text-gray-300">
-                <input
-                    type="search"
-                    placeholder="Search by name, NID, seat..."
-                    className="bg-[#121212] border border-[#333] rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-lime-500 text-gray-200"
-                    value={search}
-                    onChange={e => { setPage(1); setSearch(e.target.value); }}
-                />
-                <select
-                    className="bg-[#121212] border border-[#333] rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-lime-500 text-gray-200"
-                    value={seat}
-                    onChange={e => { setPage(1); setSeat(e.target.value); }}
-                >
-                    <option value="">All Seats</option>
-                    {seats.map((s) => (
-                        <option key={s} value={s}>{s}</option>
-                    ))}
-                </select>
-                <select
-                    className="bg-[#121212] border border-[#333] rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-lime-500 text-gray-200"
-                    value={sortBy}
-                    onChange={e => setSortBy(e.target.value)}
-                >
-                    <option value="seat">Seat</option>
-                    <option value="name">Name</option>
-                    <option value="nid">NID</option>
-                    <option value="registered">Registered</option>
-                    <option value="isBanned">Banned</option>
-                    <option value="canVote">Can Vote</option>
-                </select>
-                <select
-                    className="bg-[#121212] border border-[#333] rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-lime-500 text-gray-200"
-                    value={sortOrder}
-                    onChange={e => setSortOrder(e.target.value)}
-                >
-                    <option value="asc">Asc</option>
-                    <option value="desc">Desc</option>
-                </select>
-                <select
-                    className="bg-[#121212] border border-[#333] rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-lime-500 text-gray-200"
-                    value={flags.registered}
-                    onChange={e => { setPage(1); setFlags(f => ({ ...f, registered: e.target.value })); }}
-                >
-                    <option value="">All</option>
-                    <option value="true">Registered</option>
-                    <option value="false">Not Registered</option>
-                </select>
-                <select
-                    className="bg-[#121212] border border-[#333] rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-lime-500 text-gray-200"
-                    value={flags.banned}
-                    onChange={e => { setPage(1); setFlags(f => ({ ...f, banned: e.target.value })); }}
-                >
-                    <option value="">All</option>
-                    <option value="true">Banned</option>
-                    <option value="false">Not Banned</option>
-                </select>
-                <select
-                    className="bg-[#121212] border border-[#333] rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-lime-500 text-gray-200"
-                    value={flags.canVote}
-                    onChange={e => { setPage(1); setFlags(f => ({ ...f, canVote: e.target.value })); }}
-                >
-                    <option value="">All</option>
-                    <option value="true">Can Vote</option>
-                    <option value="false">Cannot Vote</option>
-                </select>
-            </form> */}
-            <form className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-8 gap-4 mb-4 text-gray-300" aria-label="Filter and Sort Voter List">
-                <div className="flex flex-col">
-                    <label htmlFor="search" className="mb-1 text-xs font-semibold text-gray-400 select-none">Search</label>
-                    <input
-                        id="search"
-                        type="search"
-                        placeholder="Search by name, NID, seat..."
-                        className="bg-[#121212] border border-[#333] rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-lime-500 text-gray-200"
-                        value={search}
-                        onChange={e => { setPage(1); setSearch(e.target.value); }}
-                    />
+            <div className="mb-4 grid gap-3 md:grid-cols-[1fr_12rem_10rem]">
+                <div className="relative">
+                    <label htmlFor="v-search" className="sr-only">Search voters</label>
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-3" aria-hidden="true" />
+                    <Input id="v-search" type="search" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder="Search by name or NID" className="pl-10" />
                 </div>
-
-                <div className="flex flex-col">
-                    <label htmlFor="seat-filter" className="mb-1 text-xs font-semibold text-gray-400 select-none">Seat</label>
-                    <select
-                        id="seat-filter"
-                        className="bg-[#121212] border border-[#333] rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-lime-500 text-gray-200"
-                        value={seat}
-                        onChange={e => { setPage(1); setSeat(e.target.value); }}
-                    >
-                        <option value="">All Seats</option>
-                        {seats.map((s) => (
-                            <option key={s} value={s}>{s}</option>
-                        ))}
-                    </select>
+                <div>
+                    <label htmlFor="v-seat" className="sr-only">Seat</label>
+                    <Select id="v-seat" value={seat} onChange={(e) => { setPage(1); setSeat(e.target.value); }}>
+                        <option value="">All seats</option>
+                        {seats.map((s) => <option key={s} value={s}>{s}</option>)}
+                    </Select>
                 </div>
-
-                <div className="flex flex-col">
-                    <label htmlFor="sort-by" className="mb-1 text-xs font-semibold text-gray-400 select-none">Sort by</label>
-                    <select
-                        id="sort-by"
-                        className="bg-[#121212] border border-[#333] rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-lime-500 text-gray-200"
-                        value={sortBy}
-                        onChange={e => setSortBy(e.target.value)}
-                    >
-                        <option value="seat">Seat</option>
-                        <option value="name">Name</option>
-                        <option value="nid">NID</option>
-                        <option value="registered">Registered</option>
-                        <option value="isBanned">Banned</option>
-                        <option value="canVote">Can Vote</option>
-                    </select>
+                <div>
+                    <label htmlFor="v-sort" className="sr-only">Sort by</label>
+                    <Select id="v-sort" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+                        <option value="seat">Sort by seat</option>
+                        <option value="name">Sort by name</option>
+                        <option value="nid">Sort by NID</option>
+                    </Select>
                 </div>
+            </div>
+            <Segmented label="Filter by status" value={filter} onChange={changeFilter} options={FILTERS} className="mb-4" />
 
-                <div className="flex flex-col">
-                    <label htmlFor="sort-order" className="mb-1 text-xs font-semibold text-gray-400 select-none">Sort order</label>
-                    <select
-                        id="sort-order"
-                        className="bg-[#121212] border border-[#333] rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-lime-500 text-gray-200"
-                        value={sortOrder}
-                        onChange={e => setSortOrder(e.target.value)}
-                    >
-                        <option value="asc">Ascending</option>
-                        <option value="desc">Descending</option>
-                    </select>
-                </div>
-
-                <div className="flex flex-col">
-                    <label htmlFor="registered-filter" className="mb-1 text-xs font-semibold text-gray-400 select-none">Registered</label>
-                    <select
-                        id="registered-filter"
-                        className="bg-[#121212] border border-[#333] rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-lime-500 text-gray-200"
-                        value={flags.registered}
-                        onChange={e => { setPage(1); setFlags(f => ({ ...f, registered: e.target.value })); }}
-                    >
-                        <option value="">All</option>
-                        <option value="true">Registered</option>
-                        <option value="false">Not Registered</option>
-                    </select>
-                </div>
-
-                <div className="flex flex-col">
-                    <label htmlFor="banned-filter" className="mb-1 text-xs font-semibold text-gray-400 select-none">Banned</label>
-                    <select
-                        id="banned-filter"
-                        className="bg-[#121212] border border-[#333] rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-lime-500 text-gray-200"
-                        value={flags.banned}
-                        onChange={e => { setPage(1); setFlags(f => ({ ...f, banned: e.target.value })); }}
-                    >
-                        <option value="">All</option>
-                        <option value="true">Banned</option>
-                        <option value="false">Not Banned</option>
-                    </select>
-                </div>
-
-                <div className="flex flex-col">
-                    <label htmlFor="can-vote-filter" className="mb-1 text-xs font-semibold text-gray-400 select-none">Can Vote</label>
-                    <select
-                        id="can-vote-filter"
-                        className="bg-[#121212] border border-[#333] rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-lime-500 text-gray-200"
-                        value={flags.canVote}
-                        onChange={e => { setPage(1); setFlags(f => ({ ...f, canVote: e.target.value })); }}
-                    >
-                        <option value="">All</option>
-                        <option value="true">Can Vote</option>
-                        <option value="false">Cannot Vote</option>
-                    </select>
-                </div>
-            </form>
-
-
-            {/* Table */}
-            <div className="overflow-x-auto rounded-xl bg-gradient-to-b from-[#171717] to-[#141414] border border-[#232323] shadow-sm">
-                <table className="min-w-full text-sm border-collapse">
-                    <thead className="bg-[#1b1b1b] text-gray-400 text-xs uppercase tracking-wider select-none">
-                        <tr>
-                            <TableHeader>Seat</TableHeader>
-                            <TableHeader>Name</TableHeader>
-                            <TableHeader>NID</TableHeader>
-                            <TableHeader>SIMs</TableHeader>
-                            <TableHeader>Registered</TableHeader>
-                            <TableHeader>Can Vote</TableHeader>
-                            <TableHeader>Banned</TableHeader>
-                            <TableHeader>Actions</TableHeader>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {loading ? (
-                            <tr>
-                                <td colSpan={8} className="py-12 text-center text-gray-500">
-                                    Loading...
-                                </td>
-                            </tr>
-                        ) : data.length === 0 ? (
-                            <tr>
-                                <td colSpan={8} className="py-12 text-center text-gray-500">
-                                    No voters found.
-                                </td>
-                            </tr>
-                        ) : (
-                            data.map((v) => (
-                                <tr key={v.nid} className="border-t border-[#292929] hover:bg-[#222]">
-                                    <TableCell>{v.seat}</TableCell>
-                                    <TableCell className="text-white font-medium">{v.name}</TableCell>
-                                    <TableCell className="text-[#9EFF00] font-mono">{v.nid}</TableCell>
-                                    <TableCell>{(v.sims ?? []).join(", ")}</TableCell>
-                                    <TableCell>{v.registered ? "Yes" : "No"}</TableCell>
-                                    <TableCell>{v.canVoteEffective ? "Yes" : "No"}</TableCell>
-                                    <TableCell>{v.isBanned ? "Yes" : "No"}</TableCell>
-                                    <TableCell>
-                                        <div className="flex gap-2">
-                                            <button
-                                                disabled={loading}
-                                                onClick={() => toggleStatus(v.nid, { canVote: !v.canVote })}
-                                                className="px-3 py-1 text-xs rounded bg-gray-800 border border-gray-600 text-gray-200 hover:bg-gray-700 transition"
-                                            >
-                                                {v.canVote ? "Disable" : "Enable"}
-                                            </button>
-                                            <button
-                                                disabled={loading}
-                                                onClick={() => toggleStatus(v.nid, { isBanned: !v.isBanned })}
-                                                className={`px-3 py-1 text-xs rounded text-white transition ${v.isBanned
-                                                    ? "bg-green-700 border-green-800 hover:bg-green-600"
-                                                    : "bg-red-600 border-red-700 hover:bg-red-500"
-                                                    }`}
-                                            >
-                                                {v.isBanned ? "Unban" : "Ban"}
-                                            </button>
+            <Card aria-busy={state === 'refreshing'}>
+                {state === 'loading' && <CardBody><Loading rows={4} label="Loading voters…" /></CardBody>}
+                {state === 'error' && <CardBody><Alert tone="danger" action={<Button variant="secondary" size="sm" onClick={load}>Try again</Button>}>We couldn’t load the voter roll.</Alert></CardBody>}
+                {(state === 'ready' || state === 'refreshing') && (
+                    <>
+                        <DataTable
+                            caption="Voters" breakpoint="xl"
+                            rows={rows}
+                            rowKey={(v) => v.nid}
+                            empty={<EmptyState icon={IdCard} title="No voters match">Try a different search, seat or status.</EmptyState>}
+                            columns={[
+                                {
+                                    key: 'name', header: 'Voter', primary: true,
+                                    cell: (v) => (
+                                        <div>
+                                            <p className="font-medium text-ink">{v.name}</p>
+                                            <p className="text-sm font-normal tabular-nums text-ink-3">NID {v.nid}</p>
                                         </div>
-                                    </TableCell>
-                                </tr>
-                            ))
+                                    ),
+                                },
+                                { key: 'seat', header: 'Seat', nowrap: true, cell: (v) => v.seat || '—' },
+                                { key: 'enrolled', header: 'Enrollment', cell: (v) => (v.enrollmentDone ? <Badge tone="success">Enrolled</Badge> : <Badge>Not enrolled</Badge>) },
+                                { key: 'voting', header: 'Voting', cell: (v) => <VotingBadge v={v} /> },
+                            ]}
+                            actions={(v) => (
+                                <>
+                                    {!v.isBanned && (
+                                        <Button size="sm" variant="secondary" onClick={() => toggleVoting(v)}>
+                                            {v.canVote ? 'Disable voting' : 'Allow voting'}
+                                        </Button>
+                                    )}
+                                    <Button size="sm" variant={v.isBanned ? 'secondary' : 'danger-outline'} onClick={() => setBanning(v)}>
+                                        {v.isBanned ? 'Lift ban' : 'Ban'}
+                                    </Button>
+                                </>
+                            )}
+                        />
+                        {rows.length > 0 && (
+                            <div className="border-t border-line px-4 py-4 sm:px-6">
+                                <Pagination page={page} pages={totalPages} total={total} noun="voters" onChange={setPage} />
+                            </div>
                         )}
-                    </tbody>
-                </table>
-            </div>
+                    </>
+                )}
+            </Card>
 
-            {/* Pagination */}
-            <div className="flex items-center justify-between mt-4 text-gray-300 select-none">
-                <span>Total voters: {total.toLocaleString()}</span>
-                <div className="flex items-center gap-2">
-                    <button
-                        disabled={page <= 1 || loading}
-                        onClick={() => setPage(p => Math.max(1, p - 1))}
-                        className="px-3 py-1 rounded border border-gray-600 hover:bg-gray-700 disabled:opacity-40"
-                    >
-                        Prev
-                    </button>
-                    <span>
-                        Page {page} of {totalPages}
-                    </span>
-                    <button
-                        disabled={page >= totalPages || loading}
-                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                        className="px-3 py-1 rounded border border-gray-600 hover:bg-gray-700 disabled:opacity-40"
-                    >
-                        Next
-                    </button>
-                </div>
-            </div>
-        </section>
-    );
-}
-
-function TableHeader({ children }) {
-    return (
-        <th className="px-4 py-3 text-left font-semibold">{children}</th>
-    );
-}
-
-function TableCell({ children, className = "" }) {
-    return (
-        <td className={`px-4 py-2 whitespace-nowrap text-sm ${className}`}>{children}</td>
+            <ConfirmDialog
+                open={!!banning}
+                onCancel={() => setBanning(null)}
+                onConfirm={confirmBan}
+                loading={busy}
+                tone={banning?.isBanned ? 'primary' : 'danger'}
+                title={banning?.isBanned ? `Lift the ban on ${banning?.name}?` : `Ban ${banning?.name}?`}
+                description={banning ? `NID ${banning.nid} · ${banning.seat}` : undefined}
+                confirmLabel={banning?.isBanned ? 'Lift ban' : 'Ban voter'}
+            >
+                <p className="text-[15px] text-ink-2">
+                    {banning?.isBanned
+                        ? 'They’ll be able to vote again in elections they’re eligible for.'
+                        : 'They won’t be able to vote in any election until the ban is lifted. Votes already cast are kept.'}
+                </p>
+            </ConfirmDialog>
+        </>
     );
 }

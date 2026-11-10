@@ -60,7 +60,7 @@ export async function GET() {
     await dbConnect();
 
     const cand = await Candidate.findById(p.sub)
-      .select('_id name seat partyName independent')
+      .select('_id name seat partyName independent age gender bio partyPosition education leadership futureGoals currentOccupation speech50')
       .lean();
 
     if (!cand) return NextResponse.json({ ok: false }, { status: 404 });
@@ -72,6 +72,15 @@ export async function GET() {
       seat: cand.seat,
       partyName: cand.partyName || null,
       independent: !!cand.independent,
+      age: cand.age ?? null,
+      gender: cand.gender || null,
+      bio: cand.bio || '',
+      partyPosition: cand.partyPosition || '',
+      education: cand.education || [],
+      leadership: cand.leadership || [],
+      futureGoals: cand.futureGoals || '',
+      currentOccupation: cand.currentOccupation || '',
+      speech50: cand.speech50 || '',
     });
   } catch (e) {
     console.error('GET /api/candidate/me', e);

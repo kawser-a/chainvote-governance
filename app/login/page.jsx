@@ -1,20 +1,51 @@
-
-
 'use client';
+import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import SignInLayout, { safeNext } from '../components/site/SignInLayout';
+import { Alert, Button, Field, Input } from '../components/ui/primitives';
+
+function validate(nid, pin) {
+    const errors = {};
+    if (!nid) errors.nid = 'Enter your National ID number.';
+    else if (!/^\d{10,17}$/.test(nid)) errors.nid = 'A National ID number is 10, 13 or 17 digits, numbers only.';
+    if (!pin) errors.pin = 'Enter your 6-digit PIN.';
+    else if (!/^\d{6}$/.test(pin)) errors.pin = 'Your PIN is exactly 6 digits.';
+    return errors;
+}
 
 export default function LoginPage() {
     const { login } = useAuth();
     const router = useRouter();
     const [nid, setNid] = useState('');
     const [pin, setPin] = useState('');
+    const [showPin, setShowPin] = useState(false);
+    const [errors, setErrors] = useState({});
     const [msg, setMsg] = useState('');
     const [loading, setLoading] = useState(false);
+    const [next, setNext] = useState('/dashboard');
+    const [notice, setNotice] = useState('');
+    const nidRef = useRef(null);
+    const pinRef = useRef(null);
 
-    async function submit() {
+    useEffect(() => {
+        const sp = new URLSearchParams(window.location.search);
+        setNext(safeNext(sp.get('next'), '/dashboard'));
+        if (sp.get('next')) setNotice('Please sign in to continue.');
+        if (sp.get('enrolled')) setNotice('Enrollment complete. Sign in with your new PIN.');
+        if (sp.get('nid')) setNid(sp.get('nid').replace(/\D/g, ''));
+    }, []);
+
+    async function submit(e) {
+        e.preventDefault();
         setMsg('');
+        const errs = validate(nid, pin);
+        setErrors(errs);
+        if (errs.nid) return nidRef.current?.focus();
+        if (errs.pin) return pinRef.current?.focus();
+
         setLoading(true);
         try {
             const r = await fetch('/api/login', {
@@ -25,152 +56,92 @@ export default function LoginPage() {
             });
             const j = await r.json();
             if (!j.ok) {
-                setMsg(j.error || 'Login failed');
+                setMsg(j.error || 'We couldn’t sign you in. Check your National ID and PIN and try again.');
                 return;
             }
             await login();
-            router.push('/dashboard');
+            router.push(next);
         } catch {
-            setMsg('Network error');
+            setMsg('We couldn’t reach the server. Check your internet connection and try again.');
         } finally {
             setLoading(false);
         }
     }
 
     return (
-        <div className="min-h-screen bg-[#121212] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-md w-full space-y-8">
-                {/* Header */}
-                <div className="text-center">
-                    <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-[#1E1E1E] mb-4 border border-[#2A2A2A]">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-[#C9F300]" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                        </svg>
-                    </div>
-                    <h1 className="text-3xl font-bold text-white">
-                        <span className="text-[#C9F300]">Vote</span>Chain Login
-                    </h1>
-                    <p className="mt-2 text-sm text-gray-400">Secure blockchain-based voting platform</p>
+        <SignInLayout
+            role="voter"
+            title="Sign in to vote"
+            description="Use the National ID number you enrolled with and the 6-digit PIN you chose."
+            aside={
+                <div className="max-w-sm">
+                    <h2 className="text-lg font-semibold text-ink">First time here?</h2>
+                    <p className="mt-2 text-ink-2">
+                        You need to enroll once before you can vote. It takes about two minutes and you’ll need your National ID and the mobile number registered to it.
+                    </p>
+                    <Link href="/enroll" className="mt-4 inline-flex min-h-11 items-center font-semibold text-brand underline hover:text-brand-hover">
+                        Enroll to vote
+                    </Link>
                 </div>
+            }
+        >
+            <form noValidate onSubmit={submit} className="space-y-5">
+                {notice && !msg && <Alert tone="info">{notice}</Alert>}
+                {msg && <Alert tone="danger" title="Sign in failed">{msg}</Alert>}
 
-                {/* Login Form Card */}
-                <div className="bg-[#1E1E1E] rounded-2xl shadow-xl p-8 border border-gray-800">
-                    <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); submit(); }}>
-                        {/* NID Input */}
-                        <div>
-                            <label htmlFor="nid" className="block text-sm font-medium text-gray-300 mb-2">
-                                National ID Number
-                            </label>
-                            <div className="relative">
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" />
-                                    </svg>
-                                </div>
-                                <input
-                                    id="nid"
-                                    inputMode="numeric"
-                                    autoComplete="username"
-                                    value={nid}
-                                    onChange={(e) => setNid(e.target.value.replace(/\s+/g, ''))}
-                                    placeholder="e.g., 1990123456789"
-                                    className="block w-full pl-10 bg-[#2A2A2A] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#C9F300] focus:border-transparent"
-                                    required
-                                />
-                            </div>
-                            <p className="mt-2 text-xs text-gray-500">
-                                Enter digits only; no spaces or special characters
-                            </p>
-                        </div>
+                <Field id="nid" label="National ID number" error={errors.nid}>
+                    <Input
+                        ref={nidRef}
+                        id="nid"
+                        name="nid"
+                        inputMode="numeric"
+                        autoComplete="username"
+                        maxLength={17}
+                        value={nid}
+                        error={errors.nid}
+                        onChange={(e) => setNid(e.target.value.replace(/\D/g, ''))}
+                        placeholder="e.g. 1990123456789"
+                    />
+                </Field>
 
-                        {/* PIN Input */}
-                        <div>
-                            <label htmlFor="pin" className="block text-sm font-medium text-gray-300 mb-2">
-                                PIN
-                            </label>
-                            <div className="relative">
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                                    </svg>
-                                </div>
-                                <input
-                                    id="pin"
-                                    type="password"
-                                    inputMode="numeric"
-                                    autoComplete="current-password"
-                                    value={pin}
-                                    onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                                    placeholder="Enter 6-digit PIN"
-                                    className="block w-full pl-10 bg-[#2A2A2A] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#C9F300] focus:border-transparent"
-                                    required
-                                />
-                            </div>
-                            <p className="mt-2 text-xs text-gray-500">
-                                6 digits. Avoid sequences (123456) or repeats (111111)
-                            </p>
-                        </div>
-
-                        {/* Login Button */}
-                        <div>
-                            <button
-                                type="submit"
-                                disabled={loading || !nid || pin.length !== 6}
-                                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-semibold bg-[#C9F300] hover:bg-[#9EFF00] text-[#121212] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#C9F300] focus:ring-offset-[#1E1E1E] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {loading ? (
-                                    <>
-                                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-[#121212]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                        </svg>
-                                        Signing in...
-                                    </>
-                                ) : 'Login to Dashboard'}
-                            </button>
-                        </div>
-
-                        {/* Error Message */}
-                        {msg && (
-                            <div className="rounded-lg bg-red-900/20 p-3 border border-red-800/50">
-                                <p className="text-sm text-red-400 text-center">{msg}</p>
-                            </div>
-                        )}
-                    </form>
-
-                    {/* Divider */}
-                    <div className="mt-6">
-                        <div className="relative">
-                            <div className="absolute inset-0 flex items-center">
-                                <div className="w-full border-t border-gray-800"></div>
-                            </div>
-                            <div className="relative flex justify-center text-sm">
-                                <span className="px-2 bg-[#1E1E1E] text-gray-500">New to VoteChain?</span>
-                            </div>
-                        </div>
-
-                        {/* Enrollment CTA */}
-                        <div className="mt-6 text-center">
-                            <a
-                                href="/enroll"
-                                className="inline-flex items-center px-4 py-2 border border-gray-700 rounded-lg shadow-sm text-sm font-medium text-gray-300 bg-[#2A2A2A] hover:bg-[#363636] transition-colors duration-200"
-                            >
-                                Enroll for Voting Access
-                            </a>
-                        </div>
+                <Field id="pin" label="PIN" error={errors.pin}>
+                    <div className="relative">
+                        <Input
+                            ref={pinRef}
+                            id="pin"
+                            name="pin"
+                            type={showPin ? 'text' : 'password'}
+                            inputMode="numeric"
+                            autoComplete="current-password"
+                            maxLength={6}
+                            value={pin}
+                            error={errors.pin}
+                            onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+                            className="pr-12 tracking-widest"
+                        />
+                        <button
+                            type="button"
+                            onClick={() => setShowPin((v) => !v)}
+                            className="absolute inset-y-0 right-0 flex w-12 items-center justify-center rounded-r-md text-ink-3 hover:text-ink"
+                            aria-label={showPin ? 'Hide PIN' : 'Show PIN'}
+                            aria-pressed={showPin}
+                        >
+                            {showPin ? <EyeOff className="h-5 w-5" aria-hidden="true" /> : <Eye className="h-5 w-5" aria-hidden="true" />}
+                        </button>
                     </div>
-                </div>
+                </Field>
 
-                {/* Support Footer */}
-                <div className="text-center">
-                    <div className="inline-flex items-center text-xs text-gray-500 bg-[#1A1A1A] rounded-full px-4 py-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        Forgot PIN? Contact support for assistance
-                    </div>
-                </div>
-            </div>
-        </div>
+                <Button type="submit" size="lg" block loading={loading} loadingText="Signing in…">
+                    Sign in
+                </Button>
+
+                <p className="text-center text-sm text-ink-2 lg:hidden">
+                    Not enrolled yet?{' '}
+                    <Link href="/enroll" className="font-semibold text-brand underline hover:text-brand-hover">
+                        Enroll to vote
+                    </Link>
+                </p>
+            </form>
+        </SignInLayout>
     );
 }

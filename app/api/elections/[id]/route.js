@@ -107,6 +107,19 @@ import { dbConnect } from '@/lib/db';
 import Election from '@/models/Election';
 import Manifesto from '@/models/Manifesto';
 import Candidate from '@/models/Candidate';
+import Vote from '@/models/Vote';
+import { cookies } from 'next/headers';
+import jwt from 'jsonwebtoken';
+
+// The signed-in voter's NID, if any. Used to tell the ballot page what they've already voted for.
+async function voterNid() {
+  try {
+    const t = (await cookies()).get('session')?.value;
+    return t ? jwt.verify(t, process.env.JWT_SECRET)?.sub || null : null;
+  } catch {
+    return null;
+  }
+}
 
 // GET /api/elections/:id → enrich ballot with manifesto + candidate info
 export async function GET(req, ctx) {
@@ -217,7 +230,22 @@ export async function GET(req, ctx) {
       });
     }
 
-    return NextResponse.json({ ok: true, election: { ...e, ballot } });
+    let myVotes = null;
+    const nid = await voterNid();
+    if (nid) {
+      const mine = await Vote.find({ electionId: e._id, voterNid: nid })
+        .select({ manifestoId: 1, candidateId: 1, ballotItemId: 1, optionKey: 1, createdAt: 1 })
+        .lean();
+      myVotes = mine.map(v => ({
+        manifestoId: v.manifestoId ? String(v.manifestoId) : null,
+        candidateId: v.candidateId ? String(v.candidateId) : null,
+        ballotItemId: v.ballotItemId ? String(v.ballotItemId) : null,
+        optionKey: v.optionKey || null,
+        createdAt: v.createdAt,
+      }));
+    }
+
+    return NextResponse.json({ ok: true, election: { ...e, ballot }, myVotes });
   } catch (err) {
     console.error('GET /api/elections/:id', err);
     return NextResponse.json({ ok: false, error: 'Server error' }, { status: 500 });

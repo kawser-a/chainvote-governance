@@ -30,7 +30,7 @@ export async function GET(req) {
             q.$or = [{ name: rx }, { email: rx }, { nid: rx }, { partyName: rx }];
         }
 
-        const list = await Candidate.find(q).sort({ seat: 1, name: 1 }).lean();
+        const list = await Candidate.find(q).select('-passwordHash').sort({ seat: 1, name: 1 }).lean();
         return NextResponse.json({ ok: true, data: list });
     } catch (e) {
         return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });

@@ -1,1072 +1,237 @@
-// 'use client';
-
-// import { useEffect, useMemo, useState } from 'react';
-
-// export default function AdminManifestos() {
-//     // table data
-//     const [list, setList] = useState([]);
-//     const [loading, setLoading] = useState(false);
-
-//     // pagination
-//     const [page, setPage] = useState(1);
-//     const [limit, setLimit] = useState(20);
-//     const [totalPages, setTotalPages] = useState(1);
-//     const [total, setTotal] = useState(0);
-
-//     // filters & sorting
-//     const [status, setStatus] = useState('pending'); // pending | approved | rejected | all
-//     const [seat, setSeat] = useState('');
-//     const [search, setSearch] = useState('');
-//     const [sortBy, setSortBy] = useState('createdAt'); // createdAt | title | seat | candidate
-//     const [sortOrder, setSortOrder] = useState('desc'); // asc | desc
-
-//     // seat options
-//     const [seats, setSeats] = useState([]);
-
-//     // optimistic mutation lock
-//     const [mutatingId, setMutatingId] = useState(null);
-
-//     const query = useMemo(() => {
-//         const p = new URLSearchParams();
-//         p.set('page', String(page));
-//         p.set('limit', String(limit));
-//         p.set('status', status);
-//         if (seat) p.set('seat', seat);
-//         if (search) p.set('search', search);
-//         p.set('sortBy', sortBy);
-//         p.set('sortOrder', sortOrder);
-//         return p.toString();
-//     }, [page, limit, status, seat, search, sortBy, sortOrder]);
-
-//     async function load() {
-//         setLoading(true);
-//         try {
-//             const r = await fetch(`/api/admin/manifestos?${query}`, {
-//                 credentials: 'include',
-//                 cache: 'no-store',
-//             });
-//             const j = await r.json();
-//             if (j.ok) {
-//                 setList(j.data || []);
-//                 setTotal(j.total || 0);
-//                 setTotalPages(j.totalPages || 1);
-//             } else {
-//                 setList([]);
-//                 setTotal(0);
-//                 setTotalPages(1);
-//             }
-//         } catch {
-//             setList([]);
-//             setTotal(0);
-//             setTotalPages(1);
-//         } finally {
-//             setLoading(false);
-//         }
-//     }
-
-//     useEffect(() => {
-//         load();
-//         // eslint-disable-next-line react-hooks/exhaustive-deps
-//     }, [query]);
-
-//     // try to load seat options (best-effort)
-//     useEffect(() => {
-//         (async () => {
-//             try {
-//                 // If you already have /api/admin/stats returning { seats: [{seat, total}] }
-//                 const r = await fetch('/api/admin/stats', {
-//                     credentials: 'include',
-//                     cache: 'no-store',
-//                 });
-//                 const j = await r.json();
-//                 if (j.ok && Array.isArray(j.seats)) {
-//                     setSeats(j.seats.map((s) => s.seat));
-//                 }
-//             } catch {
-//                 // ignore — seat filter will still work manually
-//             }
-//         })();
-//     }, []);
-
-//     async function setStatusFor(id, next) {
-//         try {
-//             setMutatingId(id);
-//             const r = await fetch(`/api/admin/manifestos/${id}`, {
-//                 method: 'PATCH',
-//                 headers: { 'Content-Type': 'application/json' },
-//                 credentials: 'include',
-//                 body: JSON.stringify({ status: next }),
-//             });
-//             const j = await r.json();
-//             if (!j.ok) {
-//                 alert(j.error || 'Update failed');
-//             } else {
-//                 await load();
-//             }
-//         } catch {
-//             alert('Network error');
-//         } finally {
-//             setMutatingId(null);
-//         }
-//     }
-
-//     return (
-//         <div className="space-y-6">
-//             <h1 className="text-white text-xl font-semibold">Manifestos (Admin Review)</h1>
-
-//             {/* Filters */}
-//             <div className="grid grid-cols-1 lg:grid-cols-6 gap-3">
-//                 <Select
-//                     value={status}
-//                     onChange={(v) => {
-//                         setPage(1);
-//                         setStatus(v);
-//                     }}
-//                     options={[
-//                         { value: 'pending', label: 'Pending' },
-//                         { value: 'approved', label: 'Approved' },
-//                         { value: 'rejected', label: 'Rejected' },
-//                         { value: 'all', label: 'All' },
-//                     ]}
-//                 />
-//                 <Select
-//                     value={seat}
-//                     onChange={(v) => {
-//                         setPage(1);
-//                         setSeat(v);
-//                     }}
-//                     options={[{ value: '', label: 'All seats' }, ...seats.map((s) => ({ value: s, label: s }))]}
-//                 />
-//                 <Input
-//                     placeholder="Search title..."
-//                     value={search}
-//                     onChange={(v) => {
-//                         setPage(1);
-//                         setSearch(v);
-//                     }}
-//                     className="lg:col-span-2"
-//                 />
-//                 <Select
-//                     value={sortBy}
-//                     onChange={setSortBy}
-//                     options={[
-//                         { value: 'createdAt', label: 'Created' },
-//                         { value: 'title', label: 'Title' },
-//                         { value: 'seat', label: 'Seat' },
-//                         { value: 'candidate', label: 'Candidate' },
-//                     ]}
-//                 />
-//                 <Select
-//                     value={sortOrder}
-//                     onChange={setSortOrder}
-//                     options={[
-//                         { value: 'desc', label: 'Desc' },
-//                         { value: 'asc', label: 'Asc' },
-//                     ]}
-//                 />
-//             </div>
-
-//             {/* Table */}
-//             <div className="rounded-2xl border border-[#232323] bg-[#171717] overflow-x-auto">
-//                 <table className="min-w-full text-sm">
-//                     {/* <thead className="bg-[#1b1b1b] text-[#A1A1A1]">
-//                         <tr>
-//                             <Th text="Seat" />
-//                             <Th text="Candidate" />
-//                             <Th text="Party/Ind." />
-//                             <Th text="Title" />
-//                             <Th text="Status" />
-//                             <Th text="Created" />
-//                             <Th text="Actions" />
-//                         </tr>
-//                     </thead> */}
-//                     <thead className="bg-[#1b1b1b] text-[#A1A1A1]">
-//                         <tr>
-//                             <Th text="Seat" />
-//                             <Th text="Candidate" />
-//                             <Th text="Party/Ind." />
-//                             <Th text="Title" />
-//                             <Th text="Target (months)" />  {/* NEW */}
-//                             <Th text="Status" />
-//                             <Th text="Created" />
-//                             <Th text="Actions" />
-//                         </tr>
-//                     </thead>
-//                     <tbody>
-//                         {loading ? (
-//                             <tr>
-//                                 <td colSpan={7} className="p-6 text-center text-[#A1A1A1]">
-//                                     Loading...
-//                                 </td>
-//                             </tr>
-//                         ) : list.length === 0 ? (
-//                             <tr>
-//                                 <td colSpan={7} className="p-6 text-center text-[#A1A1A1]">
-//                                     No items
-//                                 </td>
-//                             </tr>
-//                         ) : (
-//                             list.map((m) => (
-//                                 <Row
-//                                     key={m._id}
-//                                     m={m}
-//                                     disabled={mutatingId === m._id}
-//                                     onApprove={() => setStatusFor(m._id, 'approved')}
-//                                     onReject={() => setStatusFor(m._id, 'rejected')}
-//                                 />
-//                             ))
-//                         )}
-//                     </tbody>
-//                 </table>
-//             </div>
-
-//             {/* Footer / Pagination */}
-//             <div className="flex items-center justify-between">
-//                 <div className="text-[#A1A1A1] text-sm">Total: {total}</div>
-//                 <div className="flex items-center gap-2">
-//                     <button
-//                         onClick={() => setPage((p) => Math.max(1, p - 1))}
-//                         disabled={page === 1}
-//                         className="px-3 py-1 rounded-lg bg-[#1F1F1F] border border-[#2A2A2A] text-white disabled:opacity-50"
-//                     >
-//                         Prev
-//                     </button>
-//                     <span className="text-[#A1A1A1] text-sm">
-//                         Page {page} / {totalPages}
-//                     </span>
-//                     <button
-//                         onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-//                         disabled={page === totalPages}
-//                         className="px-3 py-1 rounded-lg bg-[#1F1F1F] border border-[#2A2A2A] text-white disabled:opacity-50"
-//                     >
-//                         Next
-//                     </button>
-//                 </div>
-//             </div>
-//         </div>
-//     );
-// }
-
-// /* Row + cells */
-// // function Row({ m, onApprove, onReject, disabled }) {
-// //     const party = m.candidate?.independent ? 'Independent' : m.candidate?.partyName || '';
-// //     return (
-// //         <tr className="border-t border-[#232323] hover:bg-[#1c1c1c]">
-// //             <Td>{m.seat}</Td>
-// //             <Td className="text-white">{m.candidate?.name}</Td>
-// //             <Td>{party}</Td>
-// //             <Td className="text-white">{m.title}</Td>
-// //             <Td className="capitalize">{m.status}</Td>
-// //             <Td>{new Date(m.createdAt).toLocaleString()}</Td>
-// //             <Td>
-// //                 <details>
-// //                     <summary className="cursor-pointer inline-block mr-3 text-[#9EFF00]">View</summary>
-// //                     <div className="mt-2 p-3 rounded-lg bg-[#1F1F1F] border border-[#2A2A2A] text-[#EDEDED] space-y-2">
-// //                         {m.summary ? (
-// //                             <p className="whitespace-pre-wrap">{m.summary}</p>
-// //                         ) : (
-// //                             <p className="text-[#A1A1A1]">No summary</p>
-// //                         )}
-// //                         <div>
-// //                             <div className="text-[#A1A1A1] text-sm mb-1">Milestones</div>
-// //                             {!m.milestones || m.milestones.length === 0 ? (
-// //                                 <div className="text-[#A1A1A1]">None</div>
-// //                             ) : (
-// //                                 <ul className="list-disc ml-5 space-y-1">
-// //                                     {m.milestones.map((x, i) => (
-// //                                         <li key={i}>
-// //                                             <span className="text-white">{x.title}</span>
-// //                                             {x.targetDate && (
-// //                                                 <span className="text-[#A1A1A1] ml-2">
-// //                                                     ({new Date(x.targetDate).toLocaleDateString()})
-// //                                                 </span>
-// //                                             )}
-// //                                         </li>
-// //                                     ))}
-// //                                 </ul>
-// //                             )}
-// //                         </div>
-// //                     </div>
-// //                 </details>
-
-// //                 {m.status !== 'approved' && (
-// //                     <button
-// //                         onClick={onApprove}
-// //                         disabled={disabled}
-// //                         className="px-3 py-1 rounded-lg text-xs bg-green-600 text-white hover:bg-green-700 mr-2 disabled:opacity-50"
-// //                     >
-// //                         Approve
-// //                     </button>
-// //                 )}
-// //                 {m.status !== 'rejected' && (
-// //                     <button
-// //                         onClick={onReject}
-// //                         disabled={disabled}
-// //                         className="px-3 py-1 rounded-lg text-xs bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
-// //                     >
-// //                         Reject
-// //                     </button>
-// //                 )}
-// //             </Td>
-// //         </tr>
-// //     );
-// // }
-
-// function Row({ m, onApprove, onReject, disabled }) {
-//     const party = m.candidate?.independent ? 'Independent' : m.candidate?.partyName || '';
-//     return (
-//         <tr className="border-t border-[#232323] hover:bg-[#1c1c1c]">
-//             <Td>{m.seat}</Td>
-//             <Td className="text-white">{m.candidate?.name}</Td>
-//             <Td>{party}</Td>
-//             <Td className="text-white">{m.title}</Td>
-//             <Td>{m.targetWindowMonths ?? '-'}</Td> {/* NEW */}
-//             <Td className="capitalize">{m.status}</Td>
-//             <Td>{new Date(m.createdAt).toLocaleString()}</Td>
-//             <Td>
-//                 <details>
-//                     <summary className="cursor-pointer inline-block mr-3 text-[#9EFF00]">View</summary>
-//                     <div className="mt-2 p-3 rounded-lg bg-[#1F1F1F] border border-[#2A2A2A] text-[#EDEDED] space-y-2">
-//                         {m.summary ? (
-//                             <p className="whitespace-pre-wrap">{m.summary}</p>
-//                         ) : (
-//                             <p className="text-[#A1A1A1]">No summary</p>
-//                         )}
-//                         <div className="text-[#A1A1A1] text-sm">
-//                             Target Window: <span className="text-white">{m.targetWindowMonths ?? '-'} months</span>
-//                         </div>
-//                     </div>
-//                 </details>
-
-//                 {m.status !== 'approved' && (
-//                     <button
-//                         onClick={onApprove}
-//                         disabled={disabled}
-//                         className="px-3 py-1 rounded-lg text-xs bg-green-600 text-white hover:bg-green-700 mr-2 disabled:opacity-50"
-//                     >
-//                         Approve
-//                     </button>
-//                 )}
-//                 {m.status !== 'rejected' && (
-//                     <button
-//                         onClick={onReject}
-//                         disabled={disabled}
-//                         className="px-3 py-1 rounded-lg text-xs bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
-//                     >
-//                         Reject
-//                     </button>
-//                 )}
-//             </Td>
-//         </tr>
-//     );
-// }
-
-// /* small UI helpers */
-// function Th({ text }) {
-//     return <th className="text-left px-4 py-3 font-medium">{text}</th>;
-// }
-// function Td({ children, className = '' }) {
-//     return <td className={`px-4 py-3 text-[#EDEDED] ${className}`}>{children}</td>;
-// }
-// function Input({ value, onChange, placeholder = '', className = '' }) {
-//     return (
-//         <input
-//             value={value}
-//             onChange={(e) => onChange(e.target.value)}
-//             placeholder={placeholder}
-//             className={`bg-[#0F0F0F] border border-[#2A2A2A] rounded-xl px-3 py-2 text-[#EDEDED] ${className}`}
-//         />
-//     );
-// }
-// function Select({ value, onChange, options }) {
-//     return (
-//         <select
-//             value={value}
-//             onChange={(e) => onChange(e.target.value)}
-//             className="bg-[#0F0F0F] border border-[#2A2A2A] rounded-xl px-3 py-2 text-[#EDEDED]"
-//         >
-//             {options.map((o) => (
-//                 <option key={o.value} value={o.value}>
-//                     {o.label}
-//                 </option>
-//             ))}
-//         </select>
-//     );
-// }
-
-// 'use client';
-
-// import { useEffect, useMemo, useState } from 'react';
-
-// export default function AdminManifestos() {
-//     // table data
-//     const [list, setList] = useState([]);
-//     const [loading, setLoading] = useState(false);
-
-//     // pagination
-//     const [page, setPage] = useState(1);
-//     const [limit, setLimit] = useState(20);
-//     const [totalPages, setTotalPages] = useState(1);
-//     const [total, setTotal] = useState(0);
-
-//     // filters & sorting
-//     const [status, setStatus] = useState('pending'); // pending | approved | rejected | all
-//     const [seat, setSeat] = useState('');
-//     const [search, setSearch] = useState('');
-//     const [sortBy, setSortBy] = useState('createdAt'); // createdAt | title | seat | candidate
-//     const [sortOrder, setSortOrder] = useState('desc'); // asc | desc
-
-//     // seat options
-//     const [seats, setSeats] = useState([]);
-
-//     // optimistic mutation lock
-//     const [mutatingId, setMutatingId] = useState(null);
-
-//     const query = useMemo(() => {
-//         const p = new URLSearchParams();
-//         p.set('page', String(page));
-//         p.set('limit', String(limit));
-//         p.set('status', status);
-//         if (seat) p.set('seat', seat);
-//         if (search) p.set('search', search);
-//         p.set('sortBy', sortBy);
-//         p.set('sortOrder', sortOrder);
-//         return p.toString();
-//     }, [page, limit, status, seat, search, sortBy, sortOrder]);
-
-//     async function load() {
-//         setLoading(true);
-//         try {
-//             const r = await fetch(`/api/admin/manifestos?${query}`, {
-//                 credentials: 'include',
-//                 cache: 'no-store',
-//             });
-//             const j = await r.json();
-//             if (j.ok) {
-//                 setList(j.data || []);
-//                 setTotal(j.total || 0);
-//                 setTotalPages(j.totalPages || 1);
-//             } else {
-//                 setList([]);
-//                 setTotal(0);
-//                 setTotalPages(1);
-//             }
-//         } catch {
-//             setList([]);
-//             setTotal(0);
-//             setTotalPages(1);
-//         } finally {
-//             setLoading(false);
-//         }
-//     }
-
-//     useEffect(() => {
-//         load();
-//         // eslint-disable-next-line react-hooks/exhaustive-deps
-//     }, [query]);
-
-//     // try to load seat options (best-effort)
-//     useEffect(() => {
-//         (async () => {
-//             try {
-//                 const r = await fetch('/api/admin/stats', {
-//                     credentials: 'include',
-//                     cache: 'no-store',
-//                 });
-//                 const j = await r.json();
-//                 if (j.ok && Array.isArray(j.seats)) {
-//                     setSeats(j.seats.map((s) => s.seat));
-//                 }
-//             } catch {
-//                 // ignore
-//             }
-//         })();
-//     }, []);
-
-//     async function setStatusFor(id, next) {
-//         try {
-//             setMutatingId(id);
-//             const r = await fetch(`/api/admin/manifestos/${id}`, {
-//                 method: 'PATCH',
-//                 headers: { 'Content-Type': 'application/json' },
-//                 credentials: 'include',
-//                 body: JSON.stringify({ status: next }),
-//             });
-//             const j = await r.json();
-//             if (!j.ok) {
-//                 alert(j.error || 'Update failed');
-//             } else {
-//                 await load();
-//             }
-//         } catch {
-//             alert('Network error');
-//         } finally {
-//             setMutatingId(null);
-//         }
-//     }
-
-//     return (
-//         <div className="space-y-6">
-//             <h1 className="text-white text-xl font-semibold">Manifestos (Admin Review)</h1>
-
-//             {/* Filters */}
-//             <div className="grid grid-cols-1 lg:grid-cols-6 gap-3">
-//                 <Select
-//                     value={status}
-//                     onChange={(v) => {
-//                         setPage(1);
-//                         setStatus(v);
-//                     }}
-//                     options={[
-//                         { value: 'pending', label: 'Pending' },
-//                         { value: 'approved', label: 'Approved' },
-//                         { value: 'rejected', label: 'Rejected' },
-//                         { value: 'all', label: 'All' },
-//                     ]}
-//                 />
-//                 <Select
-//                     value={seat}
-//                     onChange={(v) => {
-//                         setPage(1);
-//                         setSeat(v);
-//                     }}
-//                     options={[{ value: '', label: 'All seats' }, ...seats.map((s) => ({ value: s, label: s }))]}
-//                 />
-//                 <Input
-//                     placeholder="Search title..."
-//                     value={search}
-//                     onChange={(v) => {
-//                         setPage(1);
-//                         setSearch(v);
-//                     }}
-//                     className="lg:col-span-2"
-//                 />
-//                 <Select
-//                     value={sortBy}
-//                     onChange={setSortBy}
-//                     options={[
-//                         { value: 'createdAt', label: 'Created' },
-//                         { value: 'title', label: 'Title' },
-//                         { value: 'seat', label: 'Seat' },
-//                         { value: 'candidate', label: 'Candidate' },
-//                     ]}
-//                 />
-//                 <Select
-//                     value={sortOrder}
-//                     onChange={setSortOrder}
-//                     options={[
-//                         { value: 'desc', label: 'Desc' },
-//                         { value: 'asc', label: 'Asc' },
-//                     ]}
-//                 />
-//             </div>
-
-//             {/* Table */}
-//             <div className="rounded-2xl border border-[#232323] bg-[#171717] overflow-x-auto">
-//                 <table className="min-w-full text-sm">
-//                     <thead className="bg-[#1b1b1b] text-[#A1A1A1]">
-//                         <tr>
-//                             <Th text="Seat" />
-//                             <Th text="Candidate" />
-//                             <Th text="Party/Ind." />
-//                             <Th text="Title" />
-//                             <Th text="Target" /> {/* <-- label updated */}
-//                             <Th text="Status" />
-//                             <Th text="Created" />
-//                             <Th text="Actions" />
-//                         </tr>
-//                     </thead>
-//                     <tbody>
-//                         {loading ? (
-//                             <tr>
-//                                 <td colSpan={8} className="p-6 text-center text-[#A1A1A1]">
-//                                     Loading...
-//                                 </td>
-//                             </tr>
-//                         ) : list.length === 0 ? (
-//                             <tr>
-//                                 <td colSpan={8} className="p-6 text-center text-[#A1A1A1]">
-//                                     No items
-//                                 </td>
-//                             </tr>
-//                         ) : (
-//                             list.map((m) => (
-//                                 <Row
-//                                     key={m._id}
-//                                     m={m}
-//                                     disabled={mutatingId === m._id}
-//                                     onApprove={() => setStatusFor(m._id, 'approved')}
-//                                     onReject={() => setStatusFor(m._id, 'rejected')}
-//                                 />
-//                             ))
-//                         )}
-//                     </tbody>
-//                 </table>
-//             </div>
-
-//             {/* Footer / Pagination */}
-//             <div className="flex items-center justify-between">
-//                 <div className="text-[#A1A1A1] text-sm">Total: {total}</div>
-//                 <div className="flex items-center gap-2">
-//                     <button
-//                         onClick={() => setPage((p) => Math.max(1, p - 1))}
-//                         disabled={page === 1}
-//                         className="px-3 py-1 rounded-lg bg-[#1F1F1F] border border-[#2A2A2A] text-white disabled:opacity-50"
-//                     >
-//                         Prev
-//                     </button>
-//                     <span className="text-[#A1A1A1] text-sm">
-//                         Page {page} / {totalPages}
-//                     </span>
-//                     <button
-//                         onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-//                         disabled={page === totalPages}
-//                         className="px-3 py-1 rounded-lg bg-[#1F1F1F] border border-[#2A2A2A] text-white disabled:opacity-50"
-//                     >
-//                         Next
-//                     </button>
-//                 </div>
-//             </div>
-//         </div>
-//     );
-// }
-
-// function Row({ m, onApprove, onReject, disabled }) {
-//     const party = m.candidate?.independent ? 'Independent' : m.candidate?.partyName || '';
-//     const targetLabel = m.targetWindowMinutes
-//         ? `${m.targetWindowMinutes} minute(s)`
-//         : (m.targetWindowMonths ? `${m.targetWindowMonths} month(s)` : '—');
-
-//     const dueDate = calcDue(m); // uses createdAt + targetWindowX
-
-//     return (
-//         <tr className="border-t border-[#232323] hover:bg-[#1c1c1c]">
-//             <Td>{m.seat}</Td>
-//             <Td className="text-white">{m.candidate?.name}</Td>
-//             <Td>{party}</Td>
-//             <Td className="text-white">{m.title}</Td>
-//             <Td>{targetLabel}</Td>
-//             <Td className="capitalize">{m.status}</Td>
-//             <Td>{new Date(m.createdAt).toLocaleString()}</Td>
-//             <Td>
-//                 <details>
-//                     <summary className="cursor-pointer inline-block mr-3 text-[#9EFF00]">View</summary>
-//                     <div className="mt-2 p-3 rounded-lg bg-[#1F1F1F] border border-[#2A2A2A] text-[#EDEDED] space-y-2">
-//                         {m.summary ? (
-//                             <p className="whitespace-pre-wrap">{m.summary}</p>
-//                         ) : (
-//                             <p className="text-[#A1A1A1]">No summary</p>
-//                         )}
-//                         <div className="text-[#A1A1A1] text-sm">
-//                             <div>Target: <span className="text-white">{targetLabel}</span></div>
-//                             <div>Due: <span className="text-white">{dueDate ? new Date(dueDate).toLocaleString() : '—'}</span></div>
-//                         </div>
-//                     </div>
-//                 </details>
-
-//                 {m.status !== 'approved' && (
-//                     <button
-//                         onClick={onApprove}
-//                         disabled={disabled}
-//                         className="px-3 py-1 rounded-lg text-xs bg-green-600 text-white hover:bg-green-700 mr-2 disabled:opacity-50"
-//                     >
-//                         Approve
-//                     </button>
-//                 )}
-//                 {m.status !== 'rejected' && (
-//                     <button
-//                         onClick={onReject}
-//                         disabled={disabled}
-//                         className="px-3 py-1 rounded-lg text-xs bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
-//                     >
-//                         Reject
-//                     </button>
-//                 )}
-//             </Td>
-//         </tr>
-//     );
-// }
-
-// /* helpers */
-// function calcDue(m) {
-//     if (!m.createdAt) return null;
-//     const base = new Date(m.createdAt);
-//     if (m.targetWindowMinutes) return addMinutes(base, Number(m.targetWindowMinutes));
-//     if (m.targetWindowMonths) return addMonths(base, Number(m.targetWindowMonths));
-//     return null;
-// }
-// function addMonths(date, months) {
-//     const d = new Date(date);
-//     d.setMonth(d.getMonth() + months);
-//     return d;
-// }
-// function addMinutes(date, minutes) {
-//     const d = new Date(date);
-//     d.setMinutes(d.getMinutes() + minutes);
-//     return d;
-// }
-
-// /* small UI helpers */
-// function Th({ text }) {
-//     return <th className="text-left px-4 py-3 font-medium">{text}</th>;
-// }
-// function Td({ children, className = '' }) {
-//     return <td className={`px-4 py-3 text-[#EDEDED] ${className}`}>{children}</td>;
-// }
-// function Input({ value, onChange, placeholder = '', className = '' }) {
-//     return (
-//         <input
-//             value={value}
-//             onChange={(e) => onChange(e.target.value)}
-//             placeholder={placeholder}
-//             className={`bg-[#0F0F0F] border border-[#2A2A2A] rounded-xl px-3 py-2 text-[#EDEDED] ${className}`}
-//         />
-//     );
-// }
-// function Select({ value, onChange, options }) {
-//     return (
-//         <select
-//             value={value}
-//             onChange={(e) => onChange(e.target.value)}
-//             className="bg-[#0F0F0F] border border-[#2A2A2A] rounded-xl px-3 py-2 text-[#EDEDED]"
-//         >
-//             {options.map((o) => (
-//                 <option key={o.value} value={o.value}>
-//                     {o.label}
-//                 </option>
-//             ))}
-//         </select>
-//     );
-// }
-
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { FileText, Search } from 'lucide-react';
+import { Alert, Badge, Button, Card, CardBody, EmptyState, Input, Loading, PageHeader, Select, StatusBadge } from '../../components/ui/primitives';
+import { ConfirmDialog, Pagination, Segmented, useToast } from '../../components/ui/interactive';
+import { formatDate, formatDateTime } from '../../components/ui/format';
 
-export default function AdminManifestos() {
-    // Table states
-    const [list, setList] = useState([]);
-    const [loading, setLoading] = useState(false);
-    // Pagination
-    const [page, setPage] = useState(1);
-    const [limit] = useState(20);
-    const [totalPages, setTotalPages] = useState(1);
-    const [total, setTotal] = useState(0);
-    // Filters & sorting
-    const [status, setStatus] = useState('pending');
-    const [seat, setSeat] = useState('');
-    const [search, setSearch] = useState('');
-    const [sortBy, setSortBy] = useState('createdAt');
-    const [sortOrder, setSortOrder] = useState('desc');
-    const [seats, setSeats] = useState([]);
-    const [mutatingId, setMutatingId] = useState(null);
+const TABS = [
+    { value: 'pending', label: 'Awaiting review' },
+    { value: 'approved', label: 'Approved' },
+    { value: 'rejected', label: 'Rejected' },
+    { value: 'all', label: 'All' },
+];
 
-    const query = useMemo(() => {
-        const p = new URLSearchParams();
-        p.set('page', String(page));
-        p.set('limit', String(limit));
-        p.set('status', status);
-        if (seat) p.set('seat', seat);
-        if (search) p.set('search', search);
-        p.set('sortBy', sortBy);
-        p.set('sortOrder', sortOrder);
-        return p.toString();
-    }, [page, limit, status, seat, search, sortBy, sortOrder]);
-
-    async function load() {
-        setLoading(true);
-        try {
-            const r = await fetch(`/api/admin/manifestos?${query}`, {
-                credentials: 'include',
-                cache: 'no-store',
-            });
-            const j = await r.json();
-            if (j.ok) {
-                setList(j.data || []);
-                setTotal(j.total || 0);
-                setTotalPages(j.totalPages || 1);
-            } else {
-                setList([]);
-                setTotal(0);
-                setTotalPages(1);
-            }
-        } catch {
-            setList([]);
-            setTotal(0);
-            setTotalPages(1);
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    useEffect(() => {
-        load();
-    }, [query]);
-
-    useEffect(() => {
-        (async () => {
-            try {
-                const r = await fetch('/api/admin/stats', {
-                    credentials: 'include',
-                    cache: 'no-store',
-                });
-                const j = await r.json();
-                if (j.ok && Array.isArray(j.seats)) {
-                    setSeats(j.seats.map((s) => s.seat));
-                }
-            } catch {
-                // fail silently
-            }
-        })();
-    }, []);
-
-    async function setStatusFor(id, next) {
-        try {
-            setMutatingId(id);
-            const r = await fetch(`/api/admin/manifestos/${id}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ status: next }),
-            });
-            const j = await r.json();
-            if (!j.ok) {
-                alert(j.error || 'Update failed');
-            } else {
-                await load();
-            }
-        } catch {
-            alert('Network error');
-        } finally {
-            setMutatingId(null);
-        }
-    }
-
-    return (
-        <div className="space-y-6 px-8 py-6 max-w-full overflow-x-auto">
-            <h1 className="text-3xl font-extrabold text-white tracking-tight select-none">Manifestos (Admin Review)</h1>
-
-            {/* Filters Section */}
-            <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6 text-gray-300">
-                <Select
-                    label="Status"
-                    value={status}
-                    onChange={v => {
-                        setPage(1);
-                        setStatus(v);
-                    }}
-                    options={[
-                        { value: "pending", label: "Pending" },
-                        { value: "approved", label: "Approved" },
-                        { value: "rejected", label: "Rejected" },
-                        { value: "all", label: "All" },
-                    ]}
-                />
-                <Select
-                    label="Seat"
-                    value={seat}
-                    onChange={v => {
-                        setPage(1);
-                        setSeat(v);
-                    }}
-                    options={[{ value: "", label: "All seats" }, ...seats.map(s => ({ value: s, label: s }))]}
-                />
-                <Input
-                    label="Search Title"
-                    placeholder="Search title..."
-                    value={search}
-                    onChange={v => {
-                        setPage(1);
-                        setSearch(v);
-                    }}
-                    className="md:col-span-2"
-                />
-                <Select
-                    label="Sort By"
-                    value={sortBy}
-                    onChange={setSortBy}
-                    options={[
-                        { value: "createdAt", label: "Created" },
-                        { value: "title", label: "Title" },
-                        { value: "seat", label: "Seat" },
-                        { value: "candidate", label: "Candidate" },
-                    ]}
-                />
-                <Select
-                    label="Sort Order"
-                    value={sortOrder}
-                    onChange={setSortOrder}
-                    options={[
-                        { value: "desc", label: "Descending" },
-                        { value: "asc", label: "Ascending" },
-                    ]}
-                />
-            </div>
-
-            {/* Table Container */}
-            <div className="rounded-3xl border border-[#232323] bg-gradient-to-br from-[#171717] to-[#141414] shadow-lg overflow-x-auto">
-                <table className="min-w-full text-sm">
-                    <thead className="bg-[#1b1b1b] text-[#A1A1A1]">
-                        <tr>
-                            <Th text="Seat" />
-                            <Th text="Candidate" />
-                            <Th text="Party/Ind." />
-                            <Th text="Title" />
-                            <Th text="Target" />
-                            <Th text="Status" />
-                            <Th text="Created" />
-                            <Th text="Actions" />
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {loading ? (
-                            <tr>
-                                <td colSpan={8} className="p-12 text-center text-[#A1A1A1] font-medium select-none">Loading manifestos...</td>
-                            </tr>
-                        ) : list.length === 0 ? (
-                            <tr>
-                                <td colSpan={8} className="p-12 text-center text-[#A1A1A1] font-medium select-none">No manifestos found.</td>
-                            </tr>
-                        ) : (
-                            list.map(m => (
-                                <Row
-                                    key={m._id}
-                                    manifesto={m}
-                                    isMutating={mutatingId === m._id}
-                                    onApprove={() => setStatusFor(m._id, 'approved')}
-                                    onReject={() => setStatusFor(m._id, 'rejected')}
-                                />
-                            ))
-                        )}
-                    </tbody>
-                </table>
-            </div>
-
-            {/* Pagination */}
-            <div className="flex items-center justify-between mt-6 text-gray-300 select-none">
-                <span>Total: {total.toLocaleString()}</span>
-                <div className="flex items-center gap-3">
-                    <button
-                        disabled={page === 1 || loading}
-                        onClick={() => setPage(p => Math.max(1, p - 1))}
-                        className="px-3 py-1 rounded-lg bg-[#1F1F1F] border border-[#2A2A2A] text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#232323] transition"
-                    >
-                        Prev
-                    </button>
-                    <span className="text-sm">{page} / {totalPages}</span>
-                    <button
-                        disabled={page === totalPages || loading}
-                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                        className="px-3 py-1 rounded-lg bg-[#1F1F1F] border border-[#2A2A2A] text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#232323] transition"
-                    >
-                        Next
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-function Row({ manifesto: m, onApprove, onReject, isMutating }) {
-    const party = m.candidate?.independent ? 'Independent' : m.candidate?.partyName || '';
-    const targetLabel = m.targetWindowMinutes
-        ? `${m.targetWindowMinutes} minute(s)`
-        : m.targetWindowMonths
-            ? `${m.targetWindowMonths} month(s)`
-            : '—';
-
-    const dueDate = calculateDueDate(m);
-
-    return (
-        <tr className="border-t border-[#232323] hover:bg-[#222] group">
-            <Td>{m.seat}</Td>
-            <Td className="text-white font-medium">{m.candidate?.name}</Td>
-            <Td>{party}</Td>
-            <Td className="text-white">{m.title}</Td>
-            <Td>{targetLabel}</Td>
-            <Td className="capitalize">{m.status}</Td>
-            <Td>{new Date(m.createdAt).toLocaleString()}</Td>
-            <Td className="space-x-2">
-                {m.status !== 'approved' && (
-                    <button
-                        onClick={onApprove}
-                        disabled={isMutating}
-                        className="px-3 py-1 rounded-lg text-xs bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
-                    >
-                        Approve
-                    </button>
-                )}
-                {m.status !== 'rejected' && (
-                    <button
-                        onClick={onReject}
-                        disabled={isMutating}
-                        className="px-3 py-1 rounded-lg text-xs bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
-                    >
-                        Reject
-                    </button>
-                )}
-                <details className="inline-block ml-1 group-hover:inline-block hidden">
-                    <summary className="text-xs cursor-pointer text-lime-400">Details</summary>
-                    <div className="mt-2 p-3 bg-[#1F1F1F] border border-[#2A2A2A] rounded-lg text-gray-400 text-xs max-w-xs">
-                        {m.summary ? m.summary : <em>No summary available</em>}
-                        <div className="mt-2">
-                            <strong>Target:</strong> {targetLabel}<br />
-                            <strong>Due Date:</strong> {dueDate ? new Date(dueDate).toLocaleString() : '—'}
-                        </div>
-                    </div>
-                </details>
-            </Td>
-        </tr>
-    );
-}
-
-// Helper to calculate due date for manifesto
-function calculateDueDate(m) {
+function deadline(m) {
     if (!m.createdAt) return null;
-    const baseDate = new Date(m.createdAt);
-    if (m.targetWindowMinutes) {
-        return new Date(baseDate.getTime() + m.targetWindowMinutes * 60000);
-    }
+    const d = new Date(m.createdAt);
+    if (m.targetWindowMinutes) return { date: new Date(d.getTime() + m.targetWindowMinutes * 60000), label: `${m.targetWindowMinutes} minute${m.targetWindowMinutes === 1 ? '' : 's'} (test window)`, precise: true };
     if (m.targetWindowMonths) {
-        const d = new Date(baseDate);
         d.setMonth(d.getMonth() + m.targetWindowMonths);
-        return d;
+        return { date: d, label: `${m.targetWindowMonths} month${m.targetWindowMonths === 1 ? '' : 's'}`, precise: false };
     }
     return null;
 }
 
-// Table helpers
-function Th({ text }) {
-    return <th className="text-left px-4 py-3 font-semibold">{text}</th>;
-}
-function Td({ children, className = '' }) {
-    return <td className={`px-4 py-3 text-[#EDEDED] ${className}`}>{children}</td>;
-}
-function Input({ label, value, onChange, placeholder, className = "" }) {
+function ManifestoCard({ m, busy, onApprove, onReject }) {
+    const party = m.candidate?.independent || !m.candidate?.partyName ? 'Independent' : m.candidate.partyName;
+    const due = deadline(m);
     return (
-        <div className="flex flex-col">
-            {label && <label className="text-xs mb-1 text-gray-400">{label}</label>}
-            <input
-                value={value}
-                onChange={e => onChange(e.target.value)}
-                placeholder={placeholder}
-                className={"rounded-lg border border-[#2A2A2A] bg-[#0F0F0F] px-3 py-2 text-[#EDEDED] focus:outline-none focus:ring-2 focus:ring-lime-500 " + className}
-            />
-        </div>
+        <Card as="article">
+            <CardBody>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                        <h2 className="text-lg font-semibold text-ink [overflow-wrap:anywhere]">{m.title}</h2>
+                        <p className="mt-1 text-sm text-ink-2">
+                            {m.candidate?.name} · {party} · {m.seat}
+                        </p>
+                    </div>
+                    <StatusBadge status={m.status} />
+                </div>
+
+                <p className="mt-4 whitespace-pre-line text-[15px] leading-relaxed text-ink [overflow-wrap:anywhere]">
+                    {m.summary || <span className="text-ink-3">No summary was given.</span>}
+                </p>
+
+                <dl className="mt-4 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+                    <div>
+                        <dt className="text-ink-3">Submitted</dt>
+                        <dd className="text-ink">{formatDateTime(m.createdAt)}</dd>
+                    </div>
+                    {due && (
+                        <div>
+                            <dt className="text-ink-3">Promised within</dt>
+                            <dd className="text-ink">{due.label} · by {due.precise ? formatDateTime(due.date) : formatDate(due.date)}</dd>
+                        </div>
+                    )}
+                </dl>
+
+                <div className="mt-5 flex flex-col-reverse gap-2 border-t border-line pt-4 sm:flex-row sm:justify-end">
+                    {m.status !== 'rejected' && (
+                        <Button variant="danger-outline" onClick={onReject} disabled={busy}>
+                            {m.status === 'approved' ? 'Withdraw approval' : 'Reject'}
+                        </Button>
+                    )}
+                    {m.status !== 'approved' && (
+                        <Button onClick={onApprove} loading={busy} loadingText="Approving…">
+                            {m.status === 'rejected' ? 'Approve instead' : 'Approve and publish'}
+                        </Button>
+                    )}
+                </div>
+            </CardBody>
+        </Card>
     );
 }
-function Select({ label, value, onChange, options }) {
+
+export default function AdminManifestos() {
+    const { notify } = useToast();
+    const [rows, setRows] = useState([]);
+    const [state, setState] = useState('loading');
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [total, setTotal] = useState(0);
+    const [status, setStatus] = useState('pending');
+    const [seat, setSeat] = useState('');
+    const [seats, setSeats] = useState([]);
+    const [searchInput, setSearchInput] = useState('');
+    const [search, setSearch] = useState('');
+    const [sortOrder, setSortOrder] = useState('asc');
+    const [busyId, setBusyId] = useState(null);
+    const [rejecting, setRejecting] = useState(null);
+
+    useEffect(() => {
+        const t = setTimeout(() => { setPage(1); setSearch(searchInput.trim()); }, 300);
+        return () => clearTimeout(t);
+    }, [searchInput]);
+
+    useEffect(() => {
+        fetch('/api/admin/stats', { cache: 'no-store' })
+            .then((r) => r.json())
+            .then((j) => j?.ok && setSeats((j.seats || []).map((s) => s.seat).filter(Boolean).sort()))
+            .catch(() => {});
+    }, []);
+
+    const load = useCallback(async () => {
+        setState((s) => (s === 'ready' ? 'refreshing' : 'loading'));
+        const q = new URLSearchParams({ page: String(page), limit: '10', status, sortBy: 'createdAt', sortOrder });
+        if (seat) q.set('seat', seat);
+        if (search) q.set('search', search);
+        try {
+            const r = await fetch(`/api/admin/manifestos?${q}`, { cache: 'no-store' });
+            const j = await r.json();
+            if (!j.ok) throw new Error();
+            setRows(j.data || []);
+            setTotal(j.total || 0);
+            setTotalPages(j.totalPages || 1);
+            setState('ready');
+        } catch {
+            setState('error');
+        }
+    }, [page, status, seat, search, sortOrder]);
+
+    useEffect(() => {
+        load();
+    }, [load]);
+
+    async function setDecision(m, next) {
+        setBusyId(m._id);
+        try {
+            const r = await fetch(`/api/admin/manifestos/${m._id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: next }),
+            });
+            const j = await r.json();
+            if (!j.ok) throw new Error(j.error || 'The decision wasn’t saved.');
+            notify(
+                next === 'approved'
+                    ? `“${m.title}” is approved and now visible to voters in ${m.seat}.`
+                    : `“${m.title}” was rejected. Voters won’t see it.`,
+            );
+            setRejecting(null);
+            await load();
+        } catch (err) {
+            notify(err.message, { tone: 'danger' });
+        } finally {
+            setBusyId(null);
+        }
+    }
+
+    const emptyText = {
+        pending: ['You’re all caught up', 'New manifestos from candidates will appear here for review.'],
+        approved: ['No approved manifestos', 'Approved manifestos are shown to voters and can be petitioned.'],
+        rejected: ['No rejected manifestos', null],
+        all: ['No manifestos yet', 'Candidates haven’t submitted any manifestos.'],
+    }[status];
+    const filtered = search || seat;
+
     return (
-        <div className="flex flex-col">
-            {label && <label className="text-xs mb-1 text-gray-400">{label}</label>}
-            <select
-                value={value}
-                onChange={e => onChange(e.target.value)}
-                className="rounded-lg border border-[#2A2A2A] bg-[#0F0F0F] px-3 py-2 text-[#EDEDED] focus:outline-none focus:ring-2 focus:ring-lime-500"
+        <>
+            <PageHeader
+                title="Manifestos"
+                description="Candidates’ promises wait here until you approve them. Approved manifestos are shown to voters in that seat."
+            />
+
+            <Segmented label="Show" value={status} onChange={(v) => { setPage(1); setStatus(v); }} options={TABS} className="mb-4" />
+
+            <div className="mb-6 grid gap-3 md:grid-cols-[1fr_12rem_12rem]">
+                <div className="relative">
+                    <label htmlFor="m-search" className="sr-only">Search by title</label>
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-3" aria-hidden="true" />
+                    <Input id="m-search" type="search" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder="Search by title" className="pl-10" />
+                </div>
+                <div>
+                    <label htmlFor="m-seat" className="sr-only">Seat</label>
+                    <Select id="m-seat" value={seat} onChange={(e) => { setPage(1); setSeat(e.target.value); }}>
+                        <option value="">All seats</option>
+                        {seats.map((s) => <option key={s} value={s}>{s}</option>)}
+                    </Select>
+                </div>
+                <div>
+                    <label htmlFor="m-sort" className="sr-only">Order</label>
+                    <Select id="m-sort" value={sortOrder} onChange={(e) => { setPage(1); setSortOrder(e.target.value); }}>
+                        <option value="asc">Oldest first</option>
+                        <option value="desc">Newest first</option>
+                    </Select>
+                </div>
+            </div>
+
+            {state === 'loading' && <Card><CardBody><Loading rows={3} label="Loading manifestos…" /></CardBody></Card>}
+            {state === 'error' && (
+                <Alert tone="danger" action={<Button variant="secondary" size="sm" onClick={load}>Try again</Button>}>We couldn’t load manifestos.</Alert>
+            )}
+            {(state === 'ready' || state === 'refreshing') && (
+                rows.length === 0 ? (
+                    <Card>
+                        <EmptyState icon={FileText} title={filtered ? 'Nothing matches' : emptyText[0]}>
+                            {filtered ? 'Try a different title or seat.' : emptyText[1]}
+                        </EmptyState>
+                    </Card>
+                ) : (
+                    <div className="space-y-4" aria-busy={state === 'refreshing'}>
+                        {status === 'pending' && (
+                            <p className="text-sm text-ink-2">
+                                <Badge tone="warning">{total}</Badge> waiting for review. The oldest are shown first.
+                            </p>
+                        )}
+                        {rows.map((m) => (
+                            <ManifestoCard
+                                key={m._id}
+                                m={m}
+                                busy={busyId === m._id}
+                                onApprove={() => setDecision(m, 'approved')}
+                                onReject={() => setRejecting(m)}
+                            />
+                        ))}
+                        <Pagination page={page} pages={totalPages} total={total} noun="manifestos" onChange={setPage} />
+                    </div>
+                )
+            )}
+
+            <ConfirmDialog
+                open={!!rejecting}
+                onCancel={() => setRejecting(null)}
+                onConfirm={() => setDecision(rejecting, 'rejected')}
+                loading={!!rejecting && busyId === rejecting._id}
+                tone="danger"
+                title={rejecting?.status === 'approved' ? 'Withdraw approval?' : 'Reject this manifesto?'}
+                description={rejecting ? `“${rejecting.title}” by ${rejecting.candidate?.name}` : undefined}
+                confirmLabel={rejecting?.status === 'approved' ? 'Withdraw approval' : 'Reject manifesto'}
             >
-                {options.map(o => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-            </select>
-        </div>
+                <p className="text-[15px] text-ink-2">
+                    Voters won’t see it any more. You can approve it again later from the Rejected tab.
+                </p>
+            </ConfirmDialog>
+        </>
     );
 }
