@@ -40,6 +40,11 @@ export async function POST(req) {
         voter.credentialCommitment = credentialCommitment;
         voter.revocationHandle = revocationHandle;
         voter.enrollmentDone = true;
+
+        if (!voter.isBanned) {
+            voter.canVote = true;
+        }
+
         await voter.save();
 
         return NextResponse.json({ ok: true, credentialCommitment });
