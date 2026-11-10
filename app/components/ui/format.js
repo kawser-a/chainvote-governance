@@ -56,3 +56,15 @@ export function phaseLabel(e, now = Date.now()) {
 export function titleCase(s) {
     return String(s || "").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
+
+export function timeAgo(v, now = Date.now()) {
+    const d = toDate(v);
+    if (!d) return "—";
+    const ms = now - d.getTime();
+    if (ms < 60000) return "just now";
+    return `${span(ms)} ago`;
+}
+
+export function shortHash(h) {
+    return h ? `${String(h).slice(0, 6)}…${String(h).slice(-4)}` : "—";
+}

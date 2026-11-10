@@ -1,11 +1,12 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown, Vote } from 'lucide-react';
-import { Alert, Badge, Button, Checkbox, DetailList, EmptyState, Field, Loading, StatusBadge, Textarea, cx } from '../../../components/ui/primitives';
+import { Check, ChevronDown, Vote } from 'lucide-react';
+import { Alert, Badge, Button, Checkbox, DetailList, EmptyState, Field, Loading, Meter, StatusBadge, Textarea, cx } from '../../../components/ui/primitives';
 import { ConfirmDialog, Dialog, Pagination, useToast } from '../../../components/ui/interactive';
 import { electionPhase, formatDateTime, phaseLabel, titleCase } from '../../../components/ui/format';
 import LiveElectionWidget from '../../../components/LiveElectionWidget';
+import Countdown from '../../../components/motion/Countdown';
 import { fmtElig, fmtLocation } from '../_lib/time';
 
 /* Every state change is spelled out before it happens. */
@@ -44,28 +45,72 @@ const CONFIRM = {
     },
 };
 
+const PAUSE_REASONS = [
+    'Checking a problem with the voter roll.',
+    'Fixing an error on the ballot.',
+    'Technical issue, back shortly.',
+];
+
+/* Upcoming → Voting open → Ended, with the current stage highlighted. */
+function Lifecycle({ e }) {
+    const phase = electionPhase(e);
+    const idx = phase === 'upcoming' ? 0 : phase === 'ended' ? 2 : 1;
+    const stages = ['Upcoming', phase === 'paused' ? 'Paused' : 'Voting open', 'Ended'];
+    return (
+        <ol className="flex items-center gap-1.5 text-xs" aria-label="Election stage">
+            {stages.map((s, i) => (
+                <li key={s} className="flex items-center gap-1.5" aria-current={i === idx ? 'step' : undefined}>
+                    <span
+                        className={cx(
+                            'flex h-5 w-5 items-center justify-center rounded-full border',
+                            i < idx && 'border-brand bg-brand text-on-brand',
+                            i === idx && (phase === 'paused' ? 'border-warn bg-warn-soft' : 'border-brand bg-brand-soft'),
+                            i > idx && 'border-line-strong'
+                        )}
+                    >
+                        {i < idx ? <Check className="h-3 w-3" strokeWidth={3} aria-hidden="true" /> : i === idx && <span className={cx('h-1.5 w-1.5 rounded-full', phase === 'paused' ? 'bg-warn' : 'bg-brand', phase === 'active' && 'animate-pulse-ring')} />}
+                    </span>
+                    <span className={cx(i === idx ? 'font-semibold text-ink' : 'text-ink-3')}>{s}</span>
+                    {i < 2 && <span className={cx('h-px w-4 sm:w-6', i < idx ? 'bg-brand' : 'bg-line-strong')} aria-hidden="true" />}
+                </li>
+            ))}
+        </ol>
+    );
+}
+
 function ElectionItem({ e, onAsk, onPause, onAddCandidates }) {
     const [open, setOpen] = useState(false);
     const phase = electionPhase(e);
     const scope = e.eligibility?.scope || 'seat';
     const seats = (e.eligibility?.seats?.length ? e.eligibility.seats : e.seats) || [];
     const items = e.ballot?.length || 0;
+    const start = Date.parse(e.startAt);
+    const end = Date.parse(e.endAt);
+    const elapsed = phase === 'active' || phase === 'paused' ? Math.min(100, Math.max(0, ((Date.now() - start) / (end - start)) * 100)) : 0;
 
     return (
-        <li className="px-4 py-4 sm:px-6">
+        <li className="px-4 py-5 transition-colors hover:bg-raised/50 sm:px-6">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-semibold text-ink">{e.name}</p>
+                        <p className="text-[17px] font-semibold text-ink">{e.name}</p>
                         <StatusBadge status={e.status === 'draft' || e.status === 'archived' ? e.status : phase} />
                         {items === 0 && <Badge tone="warning">Empty ballot</Badge>}
                     </div>
+                    <div className="mt-2.5"><Lifecycle e={e} /></div>
                     <p className="mt-1 text-sm text-ink-2">
-                        {phaseLabel(e)} · {titleCase(e.type)} · {titleCase(e.ballotType)} ballot · {items} item{items === 1 ? '' : 's'}
+                        {phase === 'active' || phase === 'upcoming' ? '' : `${phaseLabel(e)} · `}{titleCase(e.type)} · {titleCase(e.ballotType)} ballot · {items} item{items === 1 ? '' : 's'}
                         {seats.length > 0 && <> · {seats.join(', ')}</>}
                     </p>
                     <p className="mt-0.5 text-sm text-ink-3">{formatDateTime(e.startAt)} to {formatDateTime(e.endAt)}</p>
-                    {e.status === 'paused' && e.pauseReason && <p className="mt-1 text-sm text-warn">Paused: {e.pauseReason}</p>}
+                    {e.status === 'paused' && e.pauseReason && <p className="mt-1 text-sm text-accent-ink">Paused: {e.pauseReason}</p>}
+                    {phase === 'active' && (
+                        <div className="mt-3 max-w-md">
+                            <Meter value={elapsed} max={100} tone="accent" label="Share of the voting window used" className="h-1.5" />
+                            <Countdown to={e.endAt} className="mt-1.5 block text-xs" />
+                        </div>
+                    )}
+                    {phase === 'upcoming' && <Countdown to={e.startAt} prefix="Opens in" endedText="Opening now" className="mt-2 block text-xs" />}
                 </div>
 
                 <div className="flex shrink-0 flex-wrap gap-2">
@@ -78,7 +123,7 @@ function ElectionItem({ e, onAsk, onPause, onAddCandidates }) {
                     )}
                     {e.status === 'paused' && <Button size="sm" onClick={() => onAsk('resume', e)}>Resume</Button>}
                     {e.status === 'completed' && (
-                        <Link href={`/admin/elections/${e._id}/results`} className="inline-flex min-h-9 pointer-coarse:min-h-11 items-center rounded-md border border-line-strong bg-surface px-3 text-sm font-semibold text-ink hover:bg-subtle">
+                        <Link href={`/admin/elections/${e._id}/results`} className="inline-flex min-h-9 pointer-coarse:min-h-11 items-center rounded-lg border border-line-strong bg-raised px-3 text-sm font-semibold text-ink transition-colors hover:bg-subtle">
                             See results
                         </Link>
                     )}
@@ -89,8 +134,8 @@ function ElectionItem({ e, onAsk, onPause, onAddCandidates }) {
             </div>
 
             {open && (
-                <div className="mt-4 grid gap-4 lg:grid-cols-2">
-                    <div className="rounded-md border border-line bg-canvas p-4">
+                <div className="mt-4 grid animate-fade gap-4 lg:grid-cols-2">
+                    <div className="rounded-xl border border-line bg-canvas p-4">
                         <p className="mb-3 text-sm font-semibold text-ink">Settings</p>
                         <DetailList
                             items={[
@@ -111,7 +156,7 @@ function ElectionItem({ e, onAsk, onPause, onAddCandidates }) {
                             )}
                         </div>
                     </div>
-                    <div className="rounded-md border border-line bg-canvas p-4">
+                    <div className="rounded-xl border border-line bg-canvas p-4">
                         <p className="mb-3 text-sm font-semibold text-ink">Live count</p>
                         {e.status === 'active' ? (
                             <LiveElectionWidget electionId={e._id} />
@@ -119,14 +164,14 @@ function ElectionItem({ e, onAsk, onPause, onAddCandidates }) {
                             <p className="text-sm text-ink-3">{e.status === 'paused' ? 'Voting is paused.' : 'Shown while voting is open.'}</p>
                         )}
                     </div>
-                    <div className="rounded-md border border-line bg-canvas p-4 lg:col-span-2">
+                    <div className="rounded-xl border border-line bg-canvas p-4 lg:col-span-2">
                         <p className="mb-3 text-sm font-semibold text-ink">On the ballot</p>
                         {items === 0 ? (
                             <p className="text-sm text-ink-3">Nothing yet.</p>
                         ) : (
                             <ul className="grid gap-2 sm:grid-cols-2">
                                 {e.ballot.map((b) => (
-                                    <li key={b._id} className="rounded-md border border-line bg-surface px-3 py-2 text-sm">
+                                    <li key={b._id} className="rounded-lg border border-line bg-surface px-3 py-2 text-sm">
                                         <p className="font-medium text-ink">{b.proposal?.title || b.title || 'Ballot item'}</p>
                                         {b.seat && <p className="text-ink-3">{b.seat}</p>}
                                         {b.proposal?.options?.length > 0 && <p className="text-ink-3">{b.proposal.options.map((o) => o.label).join(' · ')}</p>}
@@ -219,6 +264,11 @@ export default function ElectionsList({ list, loading, page, totalPages, onPage,
                 tone={cfg?.tone}
             >
                 <p className="text-[15px] text-ink-2">{cfg?.body}</p>
+                {ask?.kind === 'start' && !(ask.e.ballot?.length) && (
+                    <Alert tone="warning" className="mt-4" title="This ballot is empty">
+                        Voters will have nothing to choose. Add candidates or rebuild the ballot first.
+                    </Alert>
+                )}
                 {error && <Alert tone="danger" className="mt-4">{error}</Alert>}
             </ConfirmDialog>
 
@@ -237,7 +287,22 @@ export default function ElectionsList({ list, loading, page, totalPages, onPage,
                 }
             >
                 <p className="mb-4 text-[15px] text-ink-2">Voters can’t vote until you resume. Votes already cast are kept.</p>
-                <Field id="pause-reason" label="Reason shown to voters" optional hint="For example: “Checking a problem with the voter roll.”">
+                <Field id="pause-reason" label="Reason shown to voters" optional hint="Pick one or write your own.">
+                    <div className="mb-2 flex flex-wrap gap-2">
+                        {PAUSE_REASONS.map((r) => (
+                            <button
+                                key={r}
+                                type="button"
+                                onClick={() => setReason(r)}
+                                className={cx(
+                                    'min-h-9 pointer-coarse:min-h-11 rounded-full border px-3 text-left text-sm transition-colors',
+                                    reason === r ? 'border-brand bg-brand-soft text-brand-ink' : 'border-line-strong text-ink-2 hover:text-ink'
+                                )}
+                            >
+                                {r}
+                            </button>
+                        ))}
+                    </div>
                     <Textarea id="pause-reason" hint rows={3} maxLength={500} value={reason} onChange={(ev) => setReason(ev.target.value)} />
                 </Field>
                 {error && <Alert tone="danger" className="mt-4">{error}</Alert>}

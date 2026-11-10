@@ -25,7 +25,7 @@ export default function LiveElectionWidget({ electionId }) {
                             <span className="shrink-0 font-semibold tabular-nums text-ink">{x.votes}</span>
                         </div>
                         <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-subtle" aria-hidden="true">
-                            <div className="h-full rounded-full bg-brand" style={{ width: `${((x.votes || 0) / max) * 100}%` }} />
+                            <div className="h-full origin-left rounded-full bg-brand transition-[width] duration-700 ease-out" style={{ width: `${((x.votes || 0) / max) * 100}%` }} />
                         </div>
                     </li>
                 ))}

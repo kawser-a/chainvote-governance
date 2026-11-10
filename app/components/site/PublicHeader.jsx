@@ -8,8 +8,9 @@ import { ButtonLink, cx } from "../ui/primitives";
 import { useAuth } from "../../context/AuthContext";
 
 const LINKS = [
+    { href: "/#elections", label: "Elections" },
     { href: "/#how-it-works", label: "How it works" },
-    { href: "/#who-its-for", label: "Who it's for" },
+    { href: "/#accountability", label: "Accountability" },
     { href: "/#questions", label: "Questions" },
 ];
 
@@ -47,13 +48,13 @@ export default function PublicHeader() {
     );
 
     return (
-        <header ref={ref} className="sticky top-0 z-40 border-b border-line bg-surface/95 backdrop-blur supports-[backdrop-filter]:bg-surface/85">
+        <header ref={ref} className="sticky top-0 z-40 border-b border-line/70 bg-canvas/80 backdrop-blur-md">
             <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
                 <Logo />
 
                 <nav aria-label="Main" className="hidden items-center gap-1 lg:flex">
                     {LINKS.map((l) => (
-                        <Link key={l.href} href={l.href} className="rounded-md px-3 py-2 text-[15px] font-medium text-ink-2 hover:bg-subtle hover:text-ink">
+                        <Link key={l.href} href={l.href} className="rounded-lg px-3 py-2 text-[15px] font-medium text-ink-2 transition-colors hover:bg-subtle hover:text-ink active:bg-line">
                             {l.label}
                         </Link>
                     ))}
@@ -66,14 +67,14 @@ export default function PublicHeader() {
                     onClick={() => setOpen((v) => !v)}
                     aria-expanded={open}
                     aria-controls="site-menu"
-                    className="inline-flex h-11 items-center gap-2 rounded-md border border-line-strong px-3 text-[15px] font-semibold text-ink hover:bg-subtle lg:hidden"
+                    className="inline-flex h-11 items-center gap-2 rounded-lg border border-line-strong px-3 text-[15px] font-semibold text-ink transition-colors hover:bg-subtle active:bg-line lg:hidden"
                 >
                     {open ? <X className="h-5 w-5" aria-hidden="true" /> : <Menu className="h-5 w-5" aria-hidden="true" />}
                     Menu
                 </button>
             </div>
 
-            <div id="site-menu" hidden={!open} className={cx("border-t border-line bg-surface lg:hidden")}>
+            <div id="site-menu" hidden={!open} className={cx("animate-fade border-t border-line bg-surface lg:hidden")}>
                 <nav aria-label="Main" className="mx-auto flex max-w-6xl flex-col px-4 py-2 sm:px-6">
                     {LINKS.map((l) => (
                         <Link

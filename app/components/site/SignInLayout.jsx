@@ -16,7 +16,7 @@ export default function SignInLayout({ role, title, description, children, aside
                 <div className="w-full">
                     <nav aria-label="Account type" className="mb-6">
                         <p className="mb-2 text-sm font-medium text-ink-2">Signing in as</p>
-                        <ul className="grid grid-cols-3 gap-1 rounded-lg border border-line bg-subtle p-1">
+                        <ul className="grid grid-cols-3 gap-1 rounded-xl border border-line bg-surface p-1">
                             {ROLES.map((r) => {
                                 const active = r.key === role;
                                 return (
@@ -25,8 +25,8 @@ export default function SignInLayout({ role, title, description, children, aside
                                             href={r.href}
                                             aria-current={active ? "page" : undefined}
                                             className={cx(
-                                                "flex min-h-11 items-center justify-center rounded-md px-2 text-center text-sm font-semibold leading-tight",
-                                                active ? "bg-surface text-ink shadow-sm ring-1 ring-line" : "text-ink-2 hover:text-ink"
+                                                "flex min-h-11 items-center justify-center rounded-lg px-2 text-center text-sm font-semibold leading-tight transition-colors active:scale-[0.98]",
+                                                active ? "bg-brand-soft text-brand-ink ring-1 ring-brand/30" : "text-ink-2 hover:bg-subtle hover:text-ink"
                                             )}
                                         >
                                             {r.label}
@@ -37,8 +37,8 @@ export default function SignInLayout({ role, title, description, children, aside
                         </ul>
                     </nav>
 
-                    <div className="rounded-[var(--radius-card)] border border-line bg-surface p-5 shadow-sm sm:p-8">
-                        <h1 className="text-2xl font-bold tracking-tight text-ink">{title}</h1>
+                    <div className="animate-rise rounded-[var(--radius-card)] border border-line bg-surface p-5 shadow-[0_24px_60px_-24px_rgb(0_0_0/0.7)] sm:p-8">
+                        <h1 className="font-display text-[28px] font-semibold leading-tight tracking-tight text-ink">{title}</h1>
                         {description && <p className="mt-1.5 text-[15px] text-ink-2">{description}</p>}
                         <div className="mt-6">{children}</div>
                     </div>

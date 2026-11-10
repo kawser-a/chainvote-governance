@@ -375,7 +375,7 @@ export async function POST(req, ctx) {
       }));
       const docs = await buildChainDocs(eid, nid, voter.seat, baseDocs);
       await Vote.insertMany(docs);
-      return { ok: true, count: docs.length };
+      return { ok: true, count: docs.length, receipts: docs.map((d) => d.hash) };
     }
 
     // ====== Candidate ======
@@ -409,7 +409,7 @@ export async function POST(req, ctx) {
       }));
       const docs = await buildChainDocs(eid, nid, voter.seat, baseDocs);
       await Vote.insertMany(docs);
-      return { ok: true, count: docs.length };
+      return { ok: true, count: docs.length, receipts: docs.map((d) => d.hash) };
     }
 
     // ====== Proposal ======
@@ -430,7 +430,7 @@ export async function POST(req, ctx) {
       }];
       const docs = await buildChainDocs(eid, nid, voter.seat, baseDocs);
       await Vote.insertMany(docs);
-      return { ok: true, count: 1 };
+      return { ok: true, count: 1, receipts: docs.map((d) => d.hash) };
     }
 
     // 5) dispatch by ballot type
@@ -451,7 +451,12 @@ export async function POST(req, ctx) {
       return NextResponse.json({ ok: false, error: result?.error || 'Vote failed' }, { status: 400 });
     }
 
-    return NextResponse.json({ ok: true, ...('count' in result ? { count: result.count } : {}) });
+    // The hash of each new record doubles as the voter's receipt code.
+    return NextResponse.json({
+      ok: true,
+      ...('count' in result ? { count: result.count } : {}),
+      receipts: result.receipts || [],
+    });
   } catch (e) {
     console.error('POST /api/elections/:id/vote', e);
     return NextResponse.json({ ok: false, error: 'Server error' }, { status: 500 });

@@ -37,8 +37,8 @@ export function Dialog({ open, onClose, title, description, children, footer, si
             aria-labelledby="dialog-title"
             onClick={(e) => e.target === ref.current && onClose?.()}
             className={cx(
-                "m-0 mt-auto w-full max-w-none rounded-t-xl border border-line bg-surface p-0 text-ink shadow-xl",
-                "sm:m-auto sm:rounded-xl",
+                "m-0 mt-auto w-full max-w-none rounded-t-2xl border border-line-strong/60 bg-surface p-0 text-ink shadow-[0_24px_64px_-12px_rgb(0_0_0/0.7)]",
+                "sm:m-auto sm:rounded-2xl",
                 width
             )}
         >
@@ -46,13 +46,13 @@ export function Dialog({ open, onClose, title, description, children, footer, si
                 <div className="flex max-h-[90dvh] flex-col">
                     <div className="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
                         <div className="min-w-0">
-                            <h2 id="dialog-title" className="text-lg font-semibold text-ink">{title}</h2>
+                            <h2 id="dialog-title" className="font-display text-xl font-semibold text-ink">{title}</h2>
                             {description && <p className="mt-1 text-sm text-ink-2">{description}</p>}
                         </div>
                         <button
                             type="button"
                             onClick={onClose}
-                            className="-mr-2 -mt-1 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-ink-2 hover:bg-subtle hover:text-ink"
+                            className="-mr-2 -mt-1 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-ink-2 transition-colors hover:bg-subtle hover:text-ink active:bg-line"
                             aria-label="Close"
                         >
                             <X className="h-5 w-5" aria-hidden="true" />
@@ -127,13 +127,16 @@ export function ToastProvider({ children }) {
             {children}
             <div
                 aria-live="polite"
-                className="pointer-events-none fixed inset-x-0 bottom-0 z-[60] flex flex-col items-center gap-2 p-4 sm:items-end"
+                className="pointer-events-none fixed inset-x-0 bottom-0 z-[60] flex flex-col items-center gap-2 p-4 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:items-end lg:pb-4"
             >
                 {items.map((t) => (
                     <div
                         key={t.id}
                         role={t.tone === "danger" ? "alert" : "status"}
-                        className="pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-lg border border-line bg-surface px-4 py-3 text-sm shadow-lg"
+                        className={cx(
+                            "pointer-events-auto flex w-full max-w-sm animate-slide-up items-start gap-3 rounded-xl border bg-raised px-4 py-3 text-sm shadow-[0_16px_40px_-12px_rgb(0_0_0/0.7)]",
+                            t.tone === "danger" ? "border-danger/40" : "border-brand/30"
+                        )}
                     >
                         {t.tone === "danger" ? (
                             <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-danger" aria-hidden="true" />
@@ -145,7 +148,7 @@ export function ToastProvider({ children }) {
                             <button
                                 type="button"
                                 onClick={() => { t.action.onClick(); dismiss(t.id); }}
-                                className="-my-1 min-h-8 shrink-0 rounded px-2 font-semibold text-brand underline hover:bg-subtle"
+                                className="-my-1 min-h-8 shrink-0 rounded-md px-2 font-semibold text-brand underline transition-colors hover:bg-subtle active:bg-line"
                             >
                                 {t.action.label}
                             </button>
@@ -153,7 +156,7 @@ export function ToastProvider({ children }) {
                         <button
                             type="button"
                             onClick={() => dismiss(t.id)}
-                            className="-m-1 inline-flex h-8 w-8 items-center justify-center rounded text-ink-3 hover:bg-subtle hover:text-ink"
+                            className="-m-1 inline-flex h-8 w-8 items-center justify-center rounded-md text-ink-3 transition-colors hover:bg-subtle hover:text-ink"
                             aria-label="Dismiss notification"
                         >
                             <X className="h-4 w-4" aria-hidden="true" />
@@ -174,7 +177,7 @@ export function useToast() {
 export function Segmented({ value, onChange, options, label, className }) {
     return (
         <div role="group" aria-label={label} className={cx("-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0", className)}>
-            <div className="inline-flex min-w-max gap-1 rounded-lg border border-line bg-subtle p-1">
+            <div className="inline-flex min-w-max gap-1 rounded-xl border border-line bg-surface p-1">
                 {options.map((o) => {
                     const v = typeof o === "string" ? o : o.value;
                     const l = typeof o === "string" ? o : o.label;
@@ -186,13 +189,13 @@ export function Segmented({ value, onChange, options, label, className }) {
                             aria-pressed={active}
                             onClick={() => onChange(v)}
                             className={cx(
-                                "min-h-9 pointer-coarse:min-h-11 whitespace-nowrap rounded-md px-3 text-sm font-medium transition-colors",
-                                active ? "bg-surface text-ink shadow-sm ring-1 ring-line" : "text-ink-2 hover:text-ink"
+                                "min-h-9 pointer-coarse:min-h-11 whitespace-nowrap rounded-lg px-3.5 text-sm font-medium transition-[background-color,color] duration-150 active:scale-[0.97]",
+                                active ? "bg-brand-soft text-brand-ink ring-1 ring-brand/30" : "text-ink-2 hover:bg-subtle hover:text-ink"
                             )}
                         >
                             {l}
                             {typeof o === "object" && o.count != null && (
-                                <span className="ml-1.5 text-ink-3 tabular-nums">{o.count}</span>
+                                <span className={cx("ml-1.5 rounded-full px-1.5 text-xs tabular-nums", active ? "bg-brand/20 text-brand-ink" : "bg-subtle text-ink-3")}>{o.count}</span>
                             )}
                         </button>
                     );
@@ -248,7 +251,7 @@ export function DataTable({ columns, rows, rowKey = (r) => r._id, actions, empty
             <div className={cx(showTable, "overflow-x-auto")}>
                 <table className="w-full text-left text-sm">
                     {caption && <caption className="sr-only">{caption}</caption>}
-                    <thead className="border-b border-line bg-subtle/60 text-xs font-semibold uppercase tracking-wide text-ink-3">
+                    <thead className="border-b border-line bg-raised text-xs font-semibold uppercase tracking-wide text-ink-3">
                         <tr>
                             {columns.map((c) => (
                                 <th key={c.key} scope="col" className={cx("px-4 py-3 font-semibold", c.align === "right" && "text-right", c.nowrap && "whitespace-nowrap")}>
@@ -264,7 +267,7 @@ export function DataTable({ columns, rows, rowKey = (r) => r._id, actions, empty
                     </thead>
                     <tbody className="divide-y divide-line">
                         {rows.map((r) => (
-                            <tr key={rowKey(r)} className="align-top hover:bg-subtle/40">
+                            <tr key={rowKey(r)} className="align-middle transition-colors hover:bg-raised">
                                 {columns.map((c) => (
                                     <td key={c.key} className={cx("px-4 py-3 text-ink", c.align === "right" && "text-right tabular-nums", c.nowrap && "whitespace-nowrap")}>
                                         {c.cell(r)}
