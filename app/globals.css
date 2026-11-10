@@ -1,83 +1,91 @@
 @import "tailwindcss";
 
+/*
+ * Design tokens.
+ * A calm, civic palette: warm off-white canvas, ink text, and Bangladesh
+ * flag green as the single brand colour. Every text/background pair below
+ * meets WCAG AA contrast.
+ */
+@theme {
+    --color-canvas: #f6f7f4;
+    --color-surface: #ffffff;
+    --color-subtle: #eef1ec;
+    --color-line: #d9ded7;
+    --color-line-strong: #b4bdb2;
 
+    --color-ink: #16201b;
+    --color-ink-2: #46524b;
+    --color-ink-3: #5f6b64;
 
-body {
-    @apply bg-[#121212];
+    --color-brand: #006a4e;
+    --color-brand-hover: #00553f;
+    --color-brand-ink: #004d38;
+    --color-brand-soft: #e2f0ea;
+
+    --color-danger: #b42318;
+    --color-danger-hover: #912018;
+    --color-danger-soft: #fdecea;
+    --color-warn: #7a5200;
+    --color-warn-soft: #fff3d6;
+    --color-info: #1d4f91;
+    --color-info-soft: #e7eff9;
+
+    --color-focus: #ffbf47;
+
+    --radius-card: 0.625rem;
 }
 
-/* animation for features */
-@keyframes fadeIn {
-    0% {
-        opacity: 0;
-        transform: translateY(-5px) scale(0.95);
+@theme inline {
+    --font-sans: var(--font-public-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+@layer base {
+    html {
+        -webkit-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+        scroll-padding-top: 5rem;
     }
-    100% {
-        opacity: 1;
-        transform: translateY(0) scale(1);
+
+    body {
+        background-color: var(--color-canvas);
+        color: var(--color-ink);
+        font-family: var(--font-sans);
+        -webkit-font-smoothing: antialiased;
+    }
+
+    /* One clear, high-visibility focus style everywhere. */
+    :focus-visible {
+        outline: 3px solid var(--color-focus);
+        outline-offset: 2px;
+        border-radius: 4px;
+    }
+
+    a {
+        text-underline-offset: 3px;
+    }
+
+    ::selection {
+        background: var(--color-brand-soft);
+    }
+
+    /* Native form controls pick up the brand colour. */
+    input[type="checkbox"],
+    input[type="radio"] {
+        accent-color: var(--color-brand);
+    }
+
+    dialog::backdrop {
+        background: rgb(22 32 27 / 0.55);
     }
 }
 
-.animate-fadeIn {
-    animation: fadeIn 0.2s ease-out forwards;
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
 }
-
-
-/* Custom dropdown styles to fix blue hover */
-select {
-    background-color: #242424;
-    color: white;
-  }
-
-  select option {
-    background-color: #242424;
-    color: white;
-    padding: 12px;
-  }
-
-  select option:hover {
-    background-color: #C9F300 !important;
-    color: #121212 !important;
-  }
-
-  select option:checked,
-  select option:focus {
-    background-color: #9EFF00 !important;
-    color: #121212 !important;
-  }
-
-  /* For Firefox */
-  @-moz-document url-prefix() {
-    select {
-      color: white;
-      text-shadow: 0 0 0 white;
-    }
-
-    select option {
-      background-color: #242424;
-      color: white;
-    }
-
-    select option:hover {
-      background-color: #C9F300 !important;
-      color: #121212 !important;
-    }
-  }
-
-  /* For WebKit browsers (Chrome, Safari) */
-  select::-webkit-scrollbar {
-    width: 8px;
-  }
-
-  select::-webkit-scrollbar-track {
-    background: #1A1A1A;
-  }
-
-  select::-webkit-scrollbar-thumb {
-    background: #C9F300;
-    border-radius: 4px;
-  }
-
-  select::-webkit-scrollbar-thumb:hover {
-    background: #9EFF00;
-  }

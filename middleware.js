@@ -1,114 +1,44 @@
-
-// import { NextResponse } from 'next/server';
-// export function middleware(request) {
-//     const session = request.cookies.get('session')?.value;
-//     const { pathname } = request.nextUrl;
-
-//     const isProtected = pathname.startsWith('/dashboard');
-//     const isAuthRoute = pathname === '/login' || pathname === '/enroll';
-
-//     if (isProtected && !session) {
-//         return NextResponse.redirect(new URL('/login', request.url));
-//     }
-//     if (isAuthRoute && session) {
-//         return NextResponse.redirect(new URL('/dashboard', request.url));
-//     }
-//     return NextResponse.next();
-// }
-
-// export const config = {
-//     matcher: ['/dashboard/:path*', '/login', '/enroll']
-// };
-
-
-// import { NextResponse } from 'next/server';
-// import jwt from 'jsonwebtoken';
-
-// export function middleware(request) {
-//     const { pathname } = request.nextUrl;
-
-//     // voter session
-//     const voterSession = request.cookies.get('session')?.value;
-//     const isVoterProtected = pathname.startsWith('/dashboard');
-//     const isVoterAuthRoute = pathname === '/login' || pathname === '/enroll';
-
-//     if (isVoterProtected && !voterSession) {
-//         return NextResponse.redirect(new URL('/login', request.url));
-//     }
-//     if (isVoterAuthRoute && voterSession) {
-//         return NextResponse.redirect(new URL('/dashboard', request.url));
-//     }
-
-//     // admin session
-//     const adminSession = request.cookies.get('admin_session')?.value;
-//     const isAdminProtected = pathname.startsWith('/admin/dashboard');
-//     const isAdminAuthRoute = pathname === '/admin/login';
-
-//     if (isAdminProtected && !adminSession) {
-//         return NextResponse.redirect(new URL('/admin/login', request.url));
-//     }
-//     if (isAdminAuthRoute && adminSession) {
-//         return NextResponse.redirect(new URL('/admin/dashboard', request.url));
-//     }
-
-//     return NextResponse.next();
-// }
-
-// export const config = {
-//     matcher: [
-//         '/dashboard/:path*',
-//         '/login',
-//         '/enroll',
-//         '/admin/dashboard/:path*',
-//         '/admin/login'
-//     ],
-// };
-
 import { NextResponse } from 'next/server';
+
+// Sends signed-out visitors to the right sign-in page and remembers where they
+// were going, so they land back on that page after signing in.
+function toSignIn(request, loginPath) {
+    const url = new URL(loginPath, request.url);
+    const { pathname, search } = request.nextUrl;
+    url.searchParams.set('next', pathname + search);
+    return NextResponse.redirect(url);
+}
 
 export function middleware(request) {
     const { pathname } = request.nextUrl;
 
-    // voter
+    // Voter
     const voterSession = request.cookies.get('session')?.value;
-    const isVoterProtected = pathname.startsWith('/dashboard');
+    const isVoterProtected =
+        pathname.startsWith('/dashboard') || pathname.startsWith('/elections') || pathname.startsWith('/petitions');
     const isVoterAuthRoute = pathname === '/login' || pathname === '/enroll';
-    if (isVoterProtected && !voterSession) {
-        return NextResponse.redirect(new URL('/login', request.url));
-    }
-    if (isVoterAuthRoute && voterSession) {
-        return NextResponse.redirect(new URL('/dashboard', request.url));
-    }
+    if (isVoterProtected && !voterSession) return toSignIn(request, '/login');
+    if (isVoterAuthRoute && voterSession) return NextResponse.redirect(new URL('/dashboard', request.url));
 
-    // admin
+    // Election officials
     const adminSession = request.cookies.get('admin_session')?.value;
-    const isAdminProtected = pathname.startsWith('/admin') && pathname !== '/admin/login';
     const isAdminLogin = pathname === '/admin/login';
-    if (isAdminProtected && !adminSession) {
-        return NextResponse.redirect(new URL('/admin/login', request.url));
-    }
-    if (isAdminLogin && adminSession) {
-        return NextResponse.redirect(new URL('/admin/dashboard', request.url));
-    }
+    if (pathname.startsWith('/admin') && !isAdminLogin && !adminSession) return toSignIn(request, '/admin/login');
+    if (isAdminLogin && adminSession) return NextResponse.redirect(new URL('/admin/dashboard', request.url));
 
-    // candidate
+    // Candidates
     const candSession = request.cookies.get('candidate_session')?.value;
-    const isCandProtected = pathname.startsWith('/candidate') && pathname !== '/candidate/login';
     const isCandLogin = pathname === '/candidate/login';
-    if (isCandProtected && !candSession) {
-        return NextResponse.redirect(new URL('/candidate/login', request.url));
-    }
-    if (isCandLogin && candSession) {
-        return NextResponse.redirect(new URL('/candidate/dashboard', request.url));
-    }
+    if (pathname.startsWith('/candidate') && !isCandLogin && !candSession) return toSignIn(request, '/candidate/login');
+    if (isCandLogin && candSession) return NextResponse.redirect(new URL('/candidate/dashboard', request.url));
 
     return NextResponse.next();
 }
 
 export const config = {
     matcher: [
-        '/dashboard/:path*', '/login', '/enroll',
-        '/admin/:path*', '/admin/login',
-        '/candidate/:path*', '/candidate/login'
+        '/dashboard/:path*', '/elections/:path*', '/petitions/:path*', '/login', '/enroll',
+        '/admin/:path*',
+        '/candidate/:path*',
     ],
 };

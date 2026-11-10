@@ -176,6 +176,9 @@ import { cookies } from 'next/headers';
 import jwt from 'jsonwebtoken';
 import { dbConnect } from '@/lib/db';
 import Petition from '@/models/Petition';
+import '@/models/Election';
+import '@/models/Candidate';
+import '@/models/Manifesto';
 
 async function requireAdmin() {
   const c = await cookies();
@@ -200,9 +203,32 @@ export async function GET(req) {
     if (candidateId) q.candidateId = candidateId;
     if (status && status !== 'all') q.status = status;
 
-    const items = await Petition.find(q).sort({ createdAt: -1 }).lean();
+    const items = await Petition.find(q)
+      .sort({ createdAt: -1 })
+      .populate('electionId', 'name')
+      .populate('candidateId', 'name seat partyName independent')
+      .populate('manifestoId', 'title')
+      .lean();
 
-    return NextResponse.json({ ok: true, data: items });
+    // Flatten so the page can show names instead of raw ids.
+    const data = items.map((p) => ({
+      _id: p._id,
+      status: p.status,
+      reason: p.reason,
+      createdAt: p.createdAt,
+      updatedAt: p.updatedAt,
+      voterNid: p.voterNid,
+      electionId: p.electionId?._id || p.electionId,
+      electionName: p.electionId?.name || null,
+      candidateId: p.candidateId?._id || p.candidateId,
+      candidateName: p.candidateId?.name || null,
+      seat: p.candidateId?.seat || null,
+      partyName: p.candidateId?.independent ? null : p.candidateId?.partyName || null,
+      manifestoId: p.manifestoId?._id || p.manifestoId,
+      manifestoTitle: p.manifestoId?.title || null,
+    }));
+
+    return NextResponse.json({ ok: true, data });
   } catch (e) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   }

@@ -23,7 +23,9 @@ export async function GET(req) {
     const sp = req.nextUrl.searchParams;
     const electionId = sp.get('electionId') || ''; // optional filter
     const statusFilter = sp.getAll('status'); // e.g., ?status=verified&status=open
-    const includeStatuses = statusFilter.length ? statusFilter : ['verified']; // default: use verified only
+    // Only petitions an official has accepted count towards removal by default.
+    // 'verified' is what older builds stored, so it still counts.
+    const includeStatuses = statusFilter.length ? statusFilter : ['accepted', 'verified'];
 
     const match = {};
     if (electionId) match.electionId = new mongoose.Types.ObjectId(electionId);

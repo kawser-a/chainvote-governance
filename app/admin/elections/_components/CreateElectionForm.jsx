@@ -1,49 +1,63 @@
 'use client';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Plus, Trash2 } from 'lucide-react';
+import { Alert, Button, Card, CardBody, CardHeader, Checkbox, Field, Input, Select, Textarea, cx } from '../../../components/ui/primitives';
+import { ConfirmDialog } from '../../../components/ui/interactive';
+import { formatDateTime } from '../../../components/ui/format';
 
-import { useEffect, useState } from 'react';
-import { SectionTitle, SectionSubTitle, Label, Input, TextArea, Select, Toggle } from './UI';
-
-const TYPES = ['national', 'local', 'presidential', 'constituent', 'decision', 'policy'];
+const TYPES = [
+    { value: 'national', label: 'National', help: 'Parliamentary seats. Voters choose between candidates’ manifestos for their seat.' },
+    { value: 'local', label: 'Local', help: 'Councillor, chairman or mayor for an area. Voters choose one candidate.' },
+    { value: 'presidential', label: 'Presidential', help: 'Chosen directly by voters, or indirectly by MPs.' },
+    { value: 'decision', label: 'Decision', help: 'A yes/no style question put to everyone eligible.' },
+    { value: 'policy', label: 'Policy', help: 'A policy proposal voters agree or disagree with.' },
+    { value: 'constituent', label: 'Constituent', help: 'A proposal for a constituency, answered by its voters.' },
+];
+const BALLOTS = [
+    { value: 'manifesto', label: 'Manifesto ballot', help: 'Voters pick the commitments they support.' },
+    { value: 'candidate', label: 'Candidate ballot', help: 'Voters pick one candidate.' },
+    { value: 'proposal', label: 'Proposal ballot', help: 'Voters answer each proposal (agree, agree with conditions, disagree).' },
+];
 const LOCAL_LEVELS = ['councillor', 'chairman', 'mayor'];
-const BALLOT_TYPES = ['manifesto', 'candidate', 'proposal'];
-const VOTE_MODES = ['direct', 'indirect']; // for presidential
+const SCOPES = [
+    ['seat', 'Voters in the listed seats'],
+    ['location', 'Voters in the location below'],
+    ['country', 'Every voter in the country'],
+    ['role', 'Only voters with a role (e.g. MP)'],
+    ['all', 'Everyone enrolled'],
+];
 
-export default function CreateElectionForm({ onCreated, createElection }) {
-    // form state
+export default function CreateElectionForm({ createElection, onDone, onCancel }) {
     const [name, setName] = useState('');
     const [type, setType] = useState('national');
     const [voteMode, setVoteMode] = useState('direct');
-    const [level, setLevel] = useState('');
+    const [level, setLevel] = useState('councillor');
     const [ballotType, setBallotType] = useState('manifesto');
     const [multiSelect, setMultiSelect] = useState(true);
     const [startAt, setStartAt] = useState('');
     const [endAt, setEndAt] = useState('');
     const [seatsInput, setSeatsInput] = useState('');
-    const [location, setLocation] = useState({
-        division: '', district: '', upazila: '', union: '', ward: '', city: ''
-    });
-
+    const [location, setLocation] = useState({ division: '', district: '', upazila: '', union: '', ward: '', city: '' });
     const [advOpen, setAdvOpen] = useState(false);
     const [eligScope, setEligScope] = useState('seat');
     const [eligRoles, setEligRoles] = useState('');
     const [eligRequireEnrolled, setEligRequireEnrolled] = useState(true);
     const [eligCanVoteOnly, setEligCanVoteOnly] = useState(true);
-    const [eligMinAge, setEligMinAge] = useState(18);
-
+    const [eligMinAge, setEligMinAge] = useState('18');
     const [proposals, setProposals] = useState([]);
     const [autoBuildBallot, setAutoBuildBallot] = useState(true);
-    const [msg, setMsg] = useState('');
+    const [errors, setErrors] = useState({});
+    const [formError, setFormError] = useState('');
+    const [confirming, setConfirming] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const formRef = useRef(null);
 
+    // Sensible defaults for each kind of election; everything stays editable.
     useEffect(() => {
-        if (type === 'national') {
-            setBallotType('manifesto'); setMultiSelect(true); setEligScope('seat'); setVoteMode('direct');
-        } else if (type === 'presidential') {
-            setBallotType('candidate'); setMultiSelect(false); setVoteMode('indirect'); setEligScope('role'); setEligRoles('MP');
-        } else if (type === 'local') {
-            setBallotType('candidate'); setMultiSelect(false); setEligScope('location');
-        } else {
-            setBallotType('proposal'); setMultiSelect(false); setEligScope('all'); setVoteMode('direct');
-        }
+        if (type === 'national') { setBallotType('manifesto'); setMultiSelect(true); setEligScope('seat'); setVoteMode('direct'); }
+        else if (type === 'presidential') { setBallotType('candidate'); setMultiSelect(false); setVoteMode('indirect'); setEligScope('role'); setEligRoles('MP'); }
+        else if (type === 'local') { setBallotType('candidate'); setMultiSelect(false); setEligScope('location'); }
+        else { setBallotType('proposal'); setMultiSelect(false); setEligScope('all'); setVoteMode('direct'); }
     }, [type]);
 
     useEffect(() => {
@@ -51,45 +65,67 @@ export default function CreateElectionForm({ onCreated, createElection }) {
         if (ballotType === 'candidate') setMultiSelect(false);
     }, [ballotType]);
 
-    function seatsArray() {
-        return seatsInput.split(',').map(s => s.trim()).filter(Boolean);
-    }
-    function mkEligibility() {
+    const seats = useMemo(() => seatsInput.split(',').map((s) => s.trim()).filter(Boolean), [seatsInput]);
+
+    function eligibility() {
         if (!advOpen) {
-            if (type === 'national') return { scope: 'seat', seats: seatsArray(), roles: [], requireEnrolled: true, canVoteOnly: true, minAge: 18 };
+            if (type === 'national') return { scope: 'seat', seats, roles: [], requireEnrolled: true, canVoteOnly: true, minAge: 18 };
             if (type === 'presidential') {
-                return (voteMode === 'indirect')
+                return voteMode === 'indirect'
                     ? { scope: 'role', roles: ['MP'], requireEnrolled: true, canVoteOnly: true, minAge: 18 }
                     : { scope: 'country', roles: [], requireEnrolled: true, canVoteOnly: true, minAge: 18 };
             }
             if (type === 'local') return { scope: 'location', roles: [], requireEnrolled: true, canVoteOnly: true, minAge: 18 };
             return { scope: 'all', roles: [], requireEnrolled: true, canVoteOnly: true, minAge: 18 };
         }
-        const roles = eligRoles.split(',').map(s => s.trim()).filter(Boolean);
         return {
             scope: eligScope,
-            seats: eligScope === 'seat' ? seatsArray() : [],
-            roles,
+            seats: eligScope === 'seat' ? seats : [],
+            roles: eligRoles.split(',').map((s) => s.trim()).filter(Boolean),
             requireEnrolled: !!eligRequireEnrolled,
             canVoteOnly: !!eligCanVoteOnly,
             minAge: Number(eligMinAge) || 18,
         };
     }
 
-    async function handleCreate() {
-        setMsg('');
-        if (!name || !startAt || !endAt) {
-            setMsg('Name, start and end are required.');
+    function validate() {
+        const e = {};
+        if (name.trim().length < 3) e.name = 'Give the election a name voters will recognise.';
+        if (!startAt) e.startAt = 'Choose when voting opens.';
+        if (!endAt) e.endAt = 'Choose when voting closes.';
+        if (startAt && endAt && new Date(endAt) <= new Date(startAt)) e.endAt = 'Voting must close after it opens.';
+        const scope = advOpen ? eligScope : eligibility().scope;
+        if (scope === 'seat' && seats.length === 0) e.seats = 'List at least one seat, for example Dhaka-10.';
+        if (ballotType === 'proposal') {
+            if (proposals.length === 0) e.proposals = 'Add at least one proposal for voters to answer.';
+            else if (proposals.some((p) => !p.title.trim())) e.proposals = 'Every proposal needs a title.';
+        }
+        return e;
+    }
+
+    function review(ev) {
+        ev.preventDefault();
+        setFormError('');
+        const e = validate();
+        setErrors(e);
+        if (Object.keys(e).length) {
+            setTimeout(() => formRef.current?.querySelector('[aria-invalid="true"], [data-error]')?.focus(), 0);
             return;
         }
+        setConfirming(true);
+    }
+
+    async function create() {
+        setSaving(true);
         try {
             await createElection({
-                name, type,
+                name: name.trim(),
+                type,
                 voteMode,
-                level: type === 'local' ? (level || null) : null,
-                seats: seatsArray(),
+                level: type === 'local' ? level || null : null,
+                seats,
                 location: type === 'local' ? location : {},
-                eligibility: mkEligibility(),
+                eligibility: eligibility(),
                 ballotType,
                 multiSelect,
                 startAt,
@@ -98,193 +134,196 @@ export default function CreateElectionForm({ onCreated, createElection }) {
                 proposals: ballotType === 'proposal' ? proposals : [],
                 autoBuildBallot: ballotType === 'manifesto' ? autoBuildBallot : false,
             });
-            setMsg('Election created.');
-            // reset
-            setName(''); setSeatsInput(''); setStartAt(''); setEndAt(''); setProposals([]);
-            onCreated?.();
-        } catch (e) {
-            setMsg(e.message || 'Create failed');
+            setConfirming(false);
+            onDone?.(name.trim());
+        } catch (err) {
+            setConfirming(false);
+            setFormError(err.message || 'The election wasn’t created. Please try again.');
+        } finally {
+            setSaving(false);
         }
     }
 
+    const updateProposal = (i, patch) => setProposals((ps) => ps.map((p, j) => (j === i ? { ...p, ...patch } : p)));
+    const typeInfo = TYPES.find((t) => t.value === type);
+    const showSeats = (advOpen ? eligScope : eligibility().scope) === 'seat';
+
     return (
-        <div className="rounded-2xl border border-[#232323] bg-[#171717] p-5 space-y-4">
-            <SectionTitle>Create Election</SectionTitle>
+        <Card className="mb-8">
+            <CardHeader title="New election" description="It’s created as Upcoming. Voters can see it, and voting opens at the start time you set." />
+            <CardBody>
+                <form ref={formRef} noValidate onSubmit={review} className="space-y-6">
+                    {formError && <Alert tone="danger">{formError}</Alert>}
 
-            {/* Basic Fields */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <Input label="Name" value={name} onChange={setName} />
-                <Select label="Type" value={type} onChange={setType} options={TYPES} />
-                {type === 'presidential' && (
-                    <Select label="Vote Mode (President)" value={voteMode} onChange={setVoteMode} options={VOTE_MODES} />
-                )}
-                {type === 'local' && (
-                    <Select label="Local Level" value={level} onChange={setLevel} options={LOCAL_LEVELS} />
-                )}
-                <Select label="Ballot Type" value={ballotType} onChange={setBallotType} options={BALLOT_TYPES} />
-                <Toggle label="Allow Multi-Select" checked={multiSelect} onChange={setMultiSelect} />
-                <Input type="datetime-local" label="Start At" value={startAt} onChange={setStartAt} />
-                <Input type="datetime-local" label="End At" value={endAt} onChange={setEndAt} />
-            </div>
+                    <div className="grid gap-5 md:grid-cols-2">
+                        <Field id="el-name" label="Election name" error={errors.name} className="md:col-span-2">
+                            <Input id="el-name" error={errors.name} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Dhaka-10 Ward Councillor Election 2026" />
+                        </Field>
+                        <Field id="el-type" label="Kind of election" hint={typeInfo?.help}>
+                            <Select id="el-type" hint value={type} onChange={(e) => setType(e.target.value)}>
+                                {TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                            </Select>
+                        </Field>
+                        {type === 'presidential' && (
+                            <Field id="el-mode" label="Who votes">
+                                <Select id="el-mode" value={voteMode} onChange={(e) => setVoteMode(e.target.value)}>
+                                    <option value="direct">All voters (direct)</option>
+                                    <option value="indirect">MPs only (indirect)</option>
+                                </Select>
+                            </Field>
+                        )}
+                        {type === 'local' && (
+                            <Field id="el-level" label="Position">
+                                <Select id="el-level" value={level} onChange={(e) => setLevel(e.target.value)}>
+                                    {LOCAL_LEVELS.map((l) => <option key={l} value={l}>{l[0].toUpperCase() + l.slice(1)}</option>)}
+                                </Select>
+                            </Field>
+                        )}
+                        <Field id="el-ballot" label="Ballot" hint={BALLOTS.find((b) => b.value === ballotType)?.help}>
+                            <Select id="el-ballot" hint value={ballotType} onChange={(e) => setBallotType(e.target.value)}>
+                                {BALLOTS.map((b) => <option key={b.value} value={b.value}>{b.label}</option>)}
+                            </Select>
+                        </Field>
+                        <Field id="el-start" label="Voting opens" error={errors.startAt}>
+                            <Input id="el-start" type="datetime-local" error={errors.startAt} value={startAt} onChange={(e) => setStartAt(e.target.value)} />
+                        </Field>
+                        <Field id="el-end" label="Voting closes" error={errors.endAt}>
+                            <Input id="el-end" type="datetime-local" error={errors.endAt} value={endAt} min={startAt || undefined} onChange={(e) => setEndAt(e.target.value)} />
+                        </Field>
+                        <Checkbox
+                            id="el-multi"
+                            className="md:col-span-2"
+                            label="Let voters choose more than one option"
+                            description={ballotType === 'manifesto' ? 'Usual for manifesto ballots, where voters back several commitments.' : 'Usually off, so each voter picks one.'}
+                            checked={multiSelect}
+                            onChange={(e) => setMultiSelect(e.target.checked)}
+                        />
+                    </div>
 
-            {/* Seats / Location */}
-            {type === 'national' && (
-                <div className="space-y-2">
-                    <Label>Seats (comma separated)</Label>
-                    <textarea
-                        value={seatsInput}
-                        onChange={(e) => setSeatsInput(e.target.value)}
-                        rows={2}
-                        placeholder="Dhaka-1, Dhaka-2, Khulna-1, ..."
-                        className="w-full bg-[#0F0F0F] border border-[#2A2A2A] rounded-xl px-3 py-2 text-[#EDEDED]"
-                    />
-                    {ballotType === 'manifesto' && (
-                        <div className="flex items-center gap-2 pt-1">
-                            <input id="abb" type="checkbox" checked={autoBuildBallot} onChange={e => setAutoBuildBallot(e.target.checked)} />
-                            <label htmlFor="abb" className="text-[#EDEDED] text-sm">Auto-build ballot from approved manifestos</label>
-                        </div>
+                    {showSeats && (
+                        <Field id="el-seats" label="Seats" hint="Separate seats with commas." error={errors.seats}>
+                            <Textarea id="el-seats" hint error={errors.seats} rows={2} value={seatsInput} onChange={(e) => setSeatsInput(e.target.value)} placeholder="Dhaka-10, Dhaka-11, Khulna-1" />
+                            {seats.length > 0 && <p className="mt-1.5 text-sm text-ink-3">{seats.length} seat{seats.length === 1 ? '' : 's'}: {seats.join(', ')}</p>}
+                        </Field>
                     )}
-                </div>
-            )}
+                    {ballotType === 'manifesto' && (
+                        <Checkbox
+                            id="el-auto"
+                            label="Fill the ballot automatically"
+                            description="Adds every approved manifesto from candidates in these seats. You can rebuild it later."
+                            checked={autoBuildBallot}
+                            onChange={(e) => setAutoBuildBallot(e.target.checked)}
+                        />
+                    )}
 
-            {type === 'local' && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <Input label="Division" value={location.division} onChange={(v) => setLocation({ ...location, division: v })} />
-                    <Input label="District" value={location.district} onChange={(v) => setLocation({ ...location, district: v })} />
-                    <Input label="Upazila" value={location.upazila} onChange={(v) => setLocation({ ...location, upazila: v })} />
-                    <Input label="Union" value={location.union} onChange={(v) => setLocation({ ...location, union: v })} />
-                    <Input label="Ward" value={location.ward} onChange={(v) => setLocation({ ...location, ward: v })} />
-                    <Input label="City" value={location.city} onChange={(v) => setLocation({ ...location, city: v })} />
-                </div>
-            )}
-
-            {/* Proposals */}
-            {ballotType === 'proposal' && (
-                <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                        <SectionSubTitle>Proposals</SectionSubTitle>
-                        <button
-                            onClick={() => setProposals(p => [...p, { title: '', reason: '', impact: '', costOrTime: '', options: [] }])}
-                            className="px-3 py-1 rounded-lg bg-[#1F1F1F] border border-[#2A2A2A] text-white hover:bg-[#2A2A2A]"
-                        >
-                            + Add proposal
-                        </button>
-                    </div>
-                    {proposals.length === 0 && <div className="text-[#A1A1A1] text-sm">No proposals added.</div>}
-                    <div className="space-y-3">
-                        {proposals.map((p, idx) => (
-                            <div key={idx} className="rounded-2xl border border-[#2A2A2A] p-3 space-y-2">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    <Input label="Title (required)" value={p.title} onChange={(v) => updateProposal(idx, { title: v })} />
-                                    <Input label="Cost/Time" value={p.costOrTime} onChange={(v) => updateProposal(idx, { costOrTime: v })} />
-                                    <TextArea label="Reason" value={p.reason} onChange={(v) => updateProposal(idx, { reason: v })} />
-                                    <TextArea label="Impact" value={p.impact} onChange={(v) => updateProposal(idx, { impact: v })} />
-                                </div>
-
-                                <div className="space-y-2">
-                                    <div className="flex items-center justify-between">
-                                        <Label>Options (optional – defaults if empty)</Label>
-                                        <button
-                                            onClick={() => addOption(idx)}
-                                            className="px-2 py-1 rounded-md bg-[#1F1F1F] border border-[#2A2A2A] text-white hover:bg-[#2A2A2A] text-xs"
-                                        >
-                                            + Add option
-                                        </button>
-                                    </div>
-                                    {(p.options || []).length === 0 ? (
-                                        <div className="text-[#A1A1A1] text-xs">Defaults: Agree / Agree with conditions / Disagree</div>
-                                    ) : (
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                                            {p.options.map((o, oi) => (
-                                                <div key={oi} className="rounded-lg border border-[#2A2A2A] p-2">
-                                                    <Input label="Key (unique)" value={o.key || ''} onChange={(v) => updateOption(idx, oi, { key: v })} />
-                                                    <Input label="Label" value={o.label || ''} onChange={(v) => updateOption(idx, oi, { label: v })} />
-                                                    <div className="flex justify-end">
-                                                        <button
-                                                            onClick={() => removeOption(idx, oi)}
-                                                            className="mt-1 px-2 py-1 rounded-md bg-red-600 text-white hover:bg-red-700 text-xs"
-                                                        >
-                                                            Remove
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="flex justify-end">
-                                    <button
-                                        onClick={() => removeProposal(idx)}
-                                        className="px-3 py-1 rounded-lg bg-red-600 text-white hover:bg-red-700"
-                                    >
-                                        Remove Proposal
-                                    </button>
-                                </div>
+                    {type === 'local' && (
+                        <fieldset>
+                            <legend className="text-sm font-semibold text-ink">Location</legend>
+                            <div className="mt-2 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                                {Object.keys(location).map((k) => (
+                                    <Field key={k} id={`loc-${k}`} label={k[0].toUpperCase() + k.slice(1)} optional>
+                                        <Input id={`loc-${k}`} value={location[k]} onChange={(e) => setLocation((l) => ({ ...l, [k]: e.target.value }))} />
+                                    </Field>
+                                ))}
                             </div>
-                        ))}
+                        </fieldset>
+                    )}
+
+                    {ballotType === 'proposal' && (
+                        <fieldset data-error={errors.proposals ? true : undefined} tabIndex={errors.proposals ? -1 : undefined}>
+                            <div className="flex items-center justify-between gap-3">
+                                <legend className="text-sm font-semibold text-ink">Proposals</legend>
+                                <Button variant="secondary" size="sm" onClick={() => setProposals((p) => [...p, { title: '', reason: '', impact: '', costOrTime: '', options: [] }])}>
+                                    <Plus className="h-4 w-4" aria-hidden="true" /> Add proposal
+                                </Button>
+                            </div>
+                            {errors.proposals && <p className="mt-2 text-sm font-medium text-danger">{errors.proposals}</p>}
+                            <p className="mt-1 text-sm text-ink-3">Voters answer each proposal with Agree, Agree with conditions or Disagree.</p>
+                            <div className="mt-3 space-y-4">
+                                {proposals.map((p, i) => (
+                                    <div key={i} className="rounded-md border border-line bg-canvas p-4">
+                                        <div className="mb-3 flex items-center justify-between">
+                                            <p className="text-sm font-semibold text-ink">Proposal {i + 1}</p>
+                                            <Button variant="ghost" size="sm" onClick={() => setProposals((ps) => ps.filter((_, j) => j !== i))}>
+                                                <Trash2 className="h-4 w-4" aria-hidden="true" /> Remove
+                                            </Button>
+                                        </div>
+                                        <div className="grid gap-4 sm:grid-cols-2">
+                                            <Field id={`p-${i}-title`} label="Title"><Input id={`p-${i}-title`} value={p.title} onChange={(e) => updateProposal(i, { title: e.target.value })} /></Field>
+                                            <Field id={`p-${i}-cost`} label="Cost and time" optional><Input id={`p-${i}-cost`} value={p.costOrTime} onChange={(e) => updateProposal(i, { costOrTime: e.target.value })} /></Field>
+                                            <Field id={`p-${i}-reason`} label="Why it’s needed" optional><Textarea id={`p-${i}-reason`} rows={3} value={p.reason} onChange={(e) => updateProposal(i, { reason: e.target.value })} /></Field>
+                                            <Field id={`p-${i}-impact`} label="Expected impact" optional><Textarea id={`p-${i}-impact`} rows={3} value={p.impact} onChange={(e) => updateProposal(i, { impact: e.target.value })} /></Field>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </fieldset>
+                    )}
+
+                    <div className="rounded-md border border-line">
+                        <button
+                            type="button"
+                            onClick={() => setAdvOpen((o) => !o)}
+                            aria-expanded={advOpen}
+                            className="flex min-h-11 w-full items-center justify-between px-4 text-left text-sm font-semibold text-ink hover:bg-subtle"
+                        >
+                            Who can vote (advanced)
+                            <span className="text-ink-3">{advOpen ? 'Hide' : 'Show'}</span>
+                        </button>
+                        {advOpen && (
+                            <div className="grid gap-4 border-t border-line p-4 sm:grid-cols-2">
+                                <Field id="el-scope" label="Eligible voters">
+                                    <Select id="el-scope" value={eligScope} onChange={(e) => setEligScope(e.target.value)}>
+                                        {SCOPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                                    </Select>
+                                </Field>
+                                {eligScope === 'role' && (
+                                    <Field id="el-roles" label="Roles" hint="Separate with commas.">
+                                        <Input id="el-roles" hint value={eligRoles} onChange={(e) => setEligRoles(e.target.value)} />
+                                    </Field>
+                                )}
+                                <Field id="el-minage" label="Minimum age">
+                                    <Input id="el-minage" inputMode="numeric" value={eligMinAge} onChange={(e) => setEligMinAge(e.target.value.replace(/\D/g, ''))} className="max-w-[8rem]" />
+                                </Field>
+                                <Checkbox id="el-req" label="Voters must be enrolled" checked={eligRequireEnrolled} onChange={(e) => setEligRequireEnrolled(e.target.checked)} />
+                                <Checkbox id="el-canvote" label="Exclude voters who are banned or have voting disabled" checked={eligCanVoteOnly} onChange={(e) => setEligCanVoteOnly(e.target.checked)} />
+                            </div>
+                        )}
                     </div>
-                </div>
-            )}
 
-            {/* Advanced eligibility */}
-            <div className="pt-2">
-                <button
-                    onClick={() => setAdvOpen(o => !o)}
-                    className="text-sm text-[#9EFF00] hover:underline"
-                >
-                    {advOpen ? 'Hide advanced eligibility' : 'Show advanced eligibility'}
-                </button>
-                {advOpen && (
-                    <div className="mt-3 rounded-xl border border-[#2A2A2A] p-3 grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <Select label="Scope" value={eligScope} onChange={setEligScope} options={['all', 'country', 'seat', 'location', 'role']} />
-                        <Input label="Roles (CSV)" value={eligRoles} onChange={setEligRoles} />
-                        <Input type="number" label="Min Age" value={String(eligMinAge)} onChange={(v) => setEligMinAge(Number(v || 18))} />
-                        <Toggle label="Require Enrolled" checked={eligRequireEnrolled} onChange={setEligRequireEnrolled} />
-                        <Toggle label="Only if canVote & not banned" checked={eligCanVoteOnly} onChange={setEligCanVoteOnly} />
+                    <div className="flex flex-col-reverse gap-2 border-t border-line pt-5 sm:flex-row sm:justify-end">
+                        <Button variant="secondary" onClick={onCancel}>Cancel</Button>
+                        <Button type="submit">Review and create</Button>
                     </div>
-                )}
-            </div>
+                </form>
+            </CardBody>
 
-            <div className="flex items-center justify-between">
-                <div className="text-sm text-[#A1A1A1]">
-                    Tips: National → Manifesto ballot + Seats. Presidential → Candidate ballot (direct or role=MP). Local → Candidate ballot + Location.
-                </div>
-                <button
-                    onClick={handleCreate}
-                    className="px-4 py-2 rounded-lg bg-[#C9F300] text-black font-medium hover:opacity-90"
-                >
-                    Create
-                </button>
-            </div>
-
-            {!!msg && <div className="text-sm text-[#9EFF00]">{msg}</div>}
-        </div>
+            <ConfirmDialog
+                open={confirming}
+                onCancel={() => setConfirming(false)}
+                onConfirm={create}
+                loading={saving}
+                title="Create this election?"
+                confirmLabel="Create election"
+                cancelLabel="Keep editing"
+            >
+                <dl className={cx('grid grid-cols-1 gap-3 text-sm sm:grid-cols-2')}>
+                    {[
+                        ['Name', name.trim()],
+                        ['Kind', typeInfo?.label],
+                        ['Ballot', `${BALLOTS.find((b) => b.value === ballotType)?.label}${multiSelect ? ', several choices allowed' : ', one choice'}`],
+                        ['Voting opens', startAt ? formatDateTime(startAt) : '—'],
+                        ['Voting closes', endAt ? formatDateTime(endAt) : '—'],
+                        showSeats ? ['Seats', seats.join(', ')] : null,
+                        ballotType === 'proposal' ? ['Proposals', String(proposals.length)] : null,
+                    ].filter(Boolean).map(([k, v]) => (
+                        <div key={k}>
+                            <dt className="text-xs font-semibold uppercase tracking-wide text-ink-3">{k}</dt>
+                            <dd className="mt-0.5 text-ink break-words">{v}</dd>
+                        </div>
+                    ))}
+                </dl>
+            </ConfirmDialog>
+        </Card>
     );
-
-    // helpers (local)
-    function updateProposal(idx, patch) {
-        setProposals(prev => prev.map((p, i) => i === idx ? { ...p, ...patch } : p));
-    }
-    function removeProposal(idx) {
-        setProposals(prev => prev.filter((_, i) => i !== idx));
-    }
-    function addOption(idx) {
-        setProposals(prev => prev.map((p, i) => i === idx ? { ...p, options: [...(p.options || []), { key: '', label: '' }] } : p));
-    }
-    function updateOption(pIdx, oIdx, patch) {
-        setProposals(prev => prev.map((p, i) => {
-            if (i !== pIdx) return p;
-            const opts = [...(p.options || [])];
-            opts[oIdx] = { ...opts[oIdx], ...patch };
-            return { ...p, options: opts };
-        }));
-    }
-    function removeOption(pIdx, oIdx) {
-        setProposals(prev => prev.map((p, i) => {
-            if (i !== pIdx) return p;
-            const opts = (p.options || []).filter((_, ii) => ii !== oIdx);
-            return { ...p, options: opts };
-        }));
-    }
 }

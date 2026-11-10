@@ -1,553 +1,247 @@
-// // 'use client';
-// // import { useEffect, useState } from 'react';
-
-// // export default function CandidateManifestos() {
-// //     const REQUIRED = { title: 5, summary: 10 }; // min chars for UX
-// //     const [list, setList] = useState([]);
-// //     const [title, setTitle] = useState('');
-// //     const [summary, setSummary] = useState('');
-// //     const [milestones, setMilestones] = useState([{ title: '', targetDate: '' }]);
-// //     const [msg, setMsg] = useState('');
-
-// //     async function load() {
-// //         const r = await fetch('/api/candidate/manifestos');
-// //         const j = await r.json();
-// //         if (j.ok) setList(j.data);
-// //     }
-// //     useEffect(() => { load(); }, []);
-
-// //     function addRow() { setMilestones(m => [...m, { title: '', targetDate: '' }]); }
-// //     function setRow(i, key, val) { setMilestones(m => m.map((r, idx) => idx === i ? { ...r, [key]: val } : r)); }
-// //     function delRow(i) { setMilestones(m => m.filter((_, idx) => idx !== i)); }
-
-// //     async function submit() {
-// //         setMsg('');
-// //         const r = await fetch('/api/candidate/manifestos', {
-// //             method: 'POST', headers: { 'Content-Type': 'application/json' },
-// //             body: JSON.stringify({
-// //                 title, summary,
-// //                 milestones: milestones.filter(x => x.title?.trim())
-// //             })
-// //         });
-// //         const j = await r.json();
-// //         if (j.ok) {
-// //             setMsg('Submitted for approval.');
-// //             setTitle(''); setSummary(''); setMilestones([{ title: '', targetDate: '' }]);
-// //             load();
-// //         } else setMsg(j.error || 'Failed');
-// //     }
-
-// //     return (
-// //         <div className="space-y-6">
-// //             <h1 className="text-white text-xl font-semibold">Manifestos</h1>
-
-// //             {/* Create */}
-// //             <div className="rounded-2xl border border-[#232323] bg-[#171717] p-4 space-y-4">
-// //                 <h2 className="text-white font-semibold">Create a New Manifesto</h2>
-
-// //                 <label className="flex flex-col gap-1">
-// //                     <span className="text-[#A1A1A1] text-sm">Manifesto Title <span className="text-red-400">*</span></span>
-// //                     <input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g., Clean Water for Ward 5"
-// //                         className="w-full bg-[#0F0F0F] border border-[#2A2A2A] rounded-xl px-3 py-2 text-[#EDEDED]" />
-// //                     <small className="text-[#6B6B6B]">Min {REQUIRED.title} characters</small>
-// //                 </label>
-
-// //                 <label className="flex flex-col gap-1">
-// //                     <span className="text-[#A1A1A1] text-sm">Why this matters (Description) <span className="text-red-400">*</span></span>
-// //                     <textarea value={summary} onChange={e => setSummary(e.target.value)} rows={5}
-// //                         placeholder="Explain the problem, your plan, expected benefits for citizens…"
-// //                         className="w-full bg-[#0F0F0F] border border-[#2A2A2A] rounded-xl px-3 py-2 text-[#EDEDED]" />
-// //                     <small className="text-[#6B6B6B]">Min {REQUIRED.summary} characters</small>
-// //                 </label>
-
-// //                 <div className="space-y-2">
-// //                     <div className="text-[#A1A1A1] text-sm">
-// //                         Timeline to Achieve <span className="text-red-400">*</span>
-// //                         <div className="text-xs text-[#6B6B6B]">Add one or more milestones with a target date.</div>
-// //                     </div>
-
-// //                     {milestones.map((m, i) => (
-// //                         <div key={i} className="grid grid-cols-1 md:grid-cols-3 gap-2 items-center">
-// //                             <input value={m.title} onChange={e => setRow(i, 'title', e.target.value)} placeholder="Milestone title (e.g., Tender issued)"
-// //                                 className="bg-[#0F0F0F] border border-[#2A2A2A] rounded-xl px-3 py-2 text-[#EDEDED] md:col-span-2" />
-// //                             <input type="date" value={m.targetDate} onChange={e => setRow(i, 'targetDate', e.target.value)}
-// //                                 className="bg-[#0F0F0F] border border-[#2A2A2A] rounded-xl px-3 py-2 text-[#EDEDED]" />
-// //                             <button onClick={() => delRow(i)} className="text-xs text-red-400">Remove</button>
-// //                         </div>
-// //                     ))}
-// //                     <button onClick={addRow} className="px-3 py-1 rounded-lg bg-[#1F1F1F] border border-[#2A2A2A] text-white">
-// //                         Add Another Milestone
-// //                     </button>
-// //                 </div>
-
-// //                 <button
-// //                     onClick={submit}
-// //                     disabled={
-// //                         title.trim().length < REQUIRED.title ||
-// //                         summary.trim().length < REQUIRED.summary ||
-// //                         milestones.length === 0 ||
-// //                         milestones.some(x => !x.title.trim() || !x.targetDate)
-// //                     }
-// //                     className="px-4 py-2 rounded-lg bg-[#C9F300] text-black font-medium disabled:opacity-50"
-// //                 >
-// //                     Submit for Admin Approval
-// //                 </button>
-// //                 {msg && <span className="text-[#9EFF00] text-sm ml-3">{msg}</span>}
-// //             </div>
-
-
-// //             {/* List */}
-// //             <div className="rounded-2xl border border-[#232323] bg-[#171717] overflow-x-auto">
-// //                 <table className="min-w-full text-sm">
-// //                     <thead className="bg-[#1b1b1b] text-[#A1A1A1]">
-// //                         <tr>
-// //                             <Th text="Title" />
-// //                             <Th text="Status" />
-// //                             <Th text="Created" />
-// //                         </tr>
-// //                     </thead>
-// //                     <tbody>
-// //                         {list.length === 0 ? (
-// //                             <tr><td colSpan={3} className="p-6 text-center text-[#A1A1A1]">No manifestos</td></tr>
-// //                         ) : list.map(m => (
-// //                             <tr key={m._id} className="border-t border-[#232323] hover:bg-[#1c1c1c]">
-// //                                 <Td className="text-white">{m.title}</Td>
-// //                                 <Td>{m.status}</Td>
-// //                                 <Td>{new Date(m.createdAt).toLocaleString()}</Td>
-// //                             </tr>
-// //                         ))}
-// //                     </tbody>
-// //                 </table>
-// //             </div>
-// //         </div>
-// //     );
-// // }
-// // function Th({ text }) { return <th className="text-left px-4 py-3 font-medium">{text}</th>; }
-// // function Td({ children, className = '' }) { return <td className={`px-4 py-3 text-[#EDEDED] ${className}`}>{children}</td>; }
-
-// 'use client';
-// import { useEffect, useState } from 'react';
-
-// export default function CandidateManifestos() {
-//   const REQUIRED = { title: 5, summary: 10 };
-
-//   const [list, setList] = useState([]);
-//   const [title, setTitle] = useState('');
-//   const [summary, setSummary] = useState('');
-//   const [targetWindowMonths, setTargetWindowMonths] = useState('6'); // default 6 months
-//   const [msg, setMsg] = useState('');
-//   const [saving, setSaving] = useState(false);
-
-//   async function load() {
-//     const r = await fetch('/api/candidate/manifestos', { cache: 'no-store', credentials: 'include' });
-//     const j = await r.json();
-//     if (j.ok) setList(j.data);
-//   }
-//   useEffect(() => { load(); }, []);
-
-//   const monthsValid = Number.isInteger(Number(targetWindowMonths))
-//     && Number(targetWindowMonths) >= 1
-//     && Number(targetWindowMonths) <= 60;
-
-//   const canSubmit =
-//     title.trim().length >= REQUIRED.title &&
-//     summary.trim().length >= REQUIRED.summary &&
-//     monthsValid;
-
-//   async function submit() {
-//     if (!canSubmit) return;
-//     setMsg('');
-//     setSaving(true);
-//     try {
-//       const r = await fetch('/api/candidate/manifestos', {
-//         method: 'POST',
-//         headers: { 'Content-Type': 'application/json' },
-//         credentials: 'include',
-//         body: JSON.stringify({
-//           title,
-//           summary,
-//           targetWindowMonths: Number(targetWindowMonths),
-//         }),
-//       });
-//       const j = await r.json();
-//       if (j.ok) {
-//         setMsg('✅ Submitted for admin approval.');
-//         setTitle('');
-//         setSummary('');
-//         setTargetWindowMonths('6');
-//         load();
-//       } else {
-//         setMsg(j.error || 'Failed');
-//       }
-//     } catch {
-//       setMsg('Network error');
-//     } finally {
-//       setSaving(false);
-//     }
-//   }
-
-//   return (
-//     <div className="space-y-6">
-//       <h1 className="text-white text-xl font-semibold">Manifestos</h1>
-
-//       {/* Create */}
-//       <div className="rounded-2xl border border-[#232323] bg-[#171717] p-4 space-y-4">
-//         <h2 className="text-white font-semibold">Create a New Manifesto</h2>
-
-//         <label className="flex flex-col gap-1">
-//           <span className="text-[#A1A1A1] text-sm">
-//             Manifesto Title <span className="text-red-400">*</span>
-//           </span>
-//           <input
-//             value={title}
-//             onChange={(e) => setTitle(e.target.value)}
-//             placeholder="e.g., Clean Water for Ward 5"
-//             className="w-full bg-[#0F0F0F] border border-[#2A2A2A] rounded-xl px-3 py-2 text-[#EDEDED]"
-//           />
-//           <small className="text-[#6B6B6B]">Min {REQUIRED.title} characters</small>
-//         </label>
-
-//         <label className="flex flex-col gap-1">
-//           <span className="text-[#A1A1A1] text-sm">
-//             Why this matters (Description) <span className="text-red-400">*</span>
-//           </span>
-//           <textarea
-//             value={summary}
-//             onChange={(e) => setSummary(e.target.value)}
-//             rows={5}
-//             placeholder="Explain the problem, your plan, expected benefits for citizens…"
-//             className="w-full bg-[#0F0F0F] border border-[#2A2A2A] rounded-xl px-3 py-2 text-[#EDEDED]"
-//           />
-//           <small className="text-[#6B6B6B]">Min {REQUIRED.summary} characters</small>
-//         </label>
-
-//         {/* ✅ Fixed target duration (months) */}
-//         <label className="flex flex-col gap-1">
-//           <span className="text-[#A1A1A1] text-sm">
-//             If elected, this will be my first priority to implement within
-//           </span>
-//           <div className="flex items-center gap-2">
-//             <input
-//               type="number"
-//               min={1}
-//               max={60}
-//               value={targetWindowMonths}
-//               onChange={(e) => setTargetWindowMonths(e.target.value)}
-//               className="w-28 bg-[#0F0F0F] border border-[#2A2A2A] rounded-xl px-3 py-2 text-[#EDEDED]"
-//             />
-//             <span className="text-[#EDEDED]">months</span>
-//           </div>
-//           {!monthsValid && (
-//             <small className="text-red-400">Please enter a number between 1 and 60.</small>
-//           )}
-//         </label>
-
-//         <button
-//           onClick={submit}
-//           disabled={!canSubmit || saving}
-//           className="px-4 py-2 rounded-lg bg-[#C9F300] text-black font-medium disabled:opacity-50"
-//         >
-//           {saving ? 'Submitting…' : 'Submit for Admin Approval'}
-//         </button>
-//         {msg && <span className="text-[#9EFF00] text-sm ml-3">{msg}</span>}
-//       </div>
-
-//       {/* List */}
-//       <div className="rounded-2xl border border-[#232323] bg-[#171717] overflow-x-auto">
-//         <table className="min-w-full text-sm">
-//           <thead className="bg-[#1b1b1b] text-[#A1A1A1]">
-//             <tr>
-//               <Th text="Title" />
-//               <Th text="Target (months)" />
-//               <Th text="Status" />
-//               <Th text="Created" />
-//             </tr>
-//           </thead>
-//           <tbody>
-//             {list.length === 0 ? (
-//               <tr>
-//                 <td colSpan={4} className="p-6 text-center text-[#A1A1A1]">No manifestos</td>
-//               </tr>
-//             ) : (
-//               list.map((m) => (
-//                 <tr key={m._id} className="border-t border-[#232323] hover:bg-[#1c1c1c]">
-//                   <Td className="text-white">{m.title}</Td>
-//                   <Td>{m.targetWindowMonths ?? '-'}</Td>
-//                   <Td className="capitalize">{m.status}</Td>
-//                   <Td>{new Date(m.createdAt).toLocaleString()}</Td>
-//                 </tr>
-//               ))
-//             )}
-//           </tbody>
-//         </table>
-//       </div>
-//     </div>
-//   );
-// }
-// function Th({ text }) { return <th className="text-left px-4 py-3 font-medium">{text}</th>; }
-// function Td({ children, className = '' }) { return <td className={`px-4 py-3 text-[#EDEDED] ${className}`}>{children}</td>; }
-
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { FileText, Plus } from 'lucide-react';
+import {
+    Alert, Button, Card, CardBody, CardHeader, EmptyState, Field, Input, Loading, PageHeader, StatusBadge, Textarea,
+} from '../../components/ui/primitives';
+import { ConfirmDialog, DataTable, useToast } from '../../components/ui/interactive';
+import { formatDate } from '../../components/ui/format';
 
-/* Utilities */
-function addMonths(date, months) {
-  const d = new Date(date);
-  d.setMonth(d.getMonth() + months);
-  return d;
+const LIMITS = { titleMin: 5, titleMax: 120, summaryMin: 10, summaryMax: 1200 };
+
+function dueDate(m) {
+    if (!m.createdAt) return null;
+    const d = new Date(m.createdAt);
+    if (m.targetWindowMinutes) d.setMinutes(d.getMinutes() + m.targetWindowMinutes);
+    else if (m.targetWindowMonths) d.setMonth(d.getMonth() + m.targetWindowMonths);
+    else return null;
+    return d;
 }
-function addMinutes(date, minutes) {
-  const d = new Date(date);
-  d.setMinutes(d.getMinutes() + minutes);
-  return d;
+
+function windowLabel(m) {
+    if (m.targetWindowMinutes) return `${m.targetWindowMinutes} minute${m.targetWindowMinutes === 1 ? '' : 's'} (test)`;
+    if (m.targetWindowMonths) return `${m.targetWindowMonths} month${m.targetWindowMonths === 1 ? '' : 's'}`;
+    return '—';
 }
-function fmtDue(m) {
-  if (!m.createdAt) return null;
-  const created = new Date(m.createdAt);
-  if (m.targetWindowMinutes) {
-    const due = addMinutes(created, m.targetWindowMinutes);
-    return { due, label: `${m.targetWindowMinutes} minute(s)`, unit: 'minutes' };
-  }
-  if (m.targetWindowMonths) {
-    const due = addMonths(created, m.targetWindowMonths);
-    return { due, label: `${m.targetWindowMonths} month(s)`, unit: 'months' };
-  }
-  return null;
+
+function Counter({ value, max }) {
+    return <span className={value > max ? 'text-danger' : 'text-ink-3'}>{value}/{max}</span>;
 }
 
 export default function CandidateManifestos() {
-  // Form
-  const [title, setTitle] = useState('');
-  const [summary, setSummary] = useState('');
-  const [durationUnit, setDurationUnit] = useState('months'); // 'months' | 'minutes'
-  const [targetMonths, setTargetMonths] = useState('');
-  const [targetMinutes, setTargetMinutes] = useState('');
+    const { notify } = useToast();
+    const [list, setList] = useState([]);
+    const [state, setState] = useState('loading');
 
-  // State
-  const [msg, setMsg] = useState('');
-  const [list, setList] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const REQUIRED = { title: 5, summary: 10 };
+    const [title, setTitle] = useState('');
+    const [summary, setSummary] = useState('');
+    const [unit, setUnit] = useState('months');
+    const [months, setMonths] = useState('');
+    const [minutes, setMinutes] = useState('');
+    const [errors, setErrors] = useState({});
+    const [formError, setFormError] = useState('');
+    const [confirming, setConfirming] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const formRef = useRef(null);
+    const titleRef = useRef(null);
 
-  async function load() {
-    setLoading(true);
-    try {
-      const r = await fetch('/api/candidate/manifestos', { cache: 'no-store', credentials: 'include' });
-      const j = await r.json();
-      if (j.ok) setList(j.data || []);
-      else setList([]);
-    } catch {
-      setList([]);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => { load(); }, []);
-
-  async function submit() {
-    setMsg('');
-    // Validate the duration depending on unit
-    let body = { title: title.trim(), summary: summary.trim(), durationUnit };
-    if (!body.title || body.title.length < REQUIRED.title) {
-      setMsg(`Title must be at least ${REQUIRED.title} characters`);
-      return;
-    }
-    if (!body.summary || body.summary.length < REQUIRED.summary) {
-      setMsg(`Description must be at least ${REQUIRED.summary} characters`);
-      return;
+    async function load() {
+        setState('loading');
+        try {
+            const r = await fetch('/api/candidate/manifestos', { cache: 'no-store', credentials: 'include' });
+            const j = await r.json();
+            if (!j.ok) throw new Error();
+            setList(j.data || []);
+            setState('ready');
+        } catch {
+            setState('error');
+        }
     }
 
-    if (durationUnit === 'minutes') {
-      const mins = Number(targetMinutes);
-      if (!mins || mins < 1) {
-        setMsg('Please enter a valid minutes duration (>=1)');
-        return;
-      }
-      body.targetWindowMinutes = mins;
-    } else {
-      const months = Number(targetMonths);
-      if (!months || months < 1) {
-        setMsg('Please enter a valid months duration (>=1)');
-        return;
-      }
-      body.targetWindowMonths = months;
+    useEffect(() => {
+        load();
+    }, []);
+
+    function validate() {
+        const e = {};
+        const t = title.trim();
+        const s = summary.trim();
+        if (t.length < LIMITS.titleMin) e.title = `Write a title of at least ${LIMITS.titleMin} characters.`;
+        else if (t.length > LIMITS.titleMax) e.title = `Keep the title under ${LIMITS.titleMax} characters.`;
+        if (s.length < LIMITS.summaryMin) e.summary = `Describe the plan in at least ${LIMITS.summaryMin} characters.`;
+        else if (s.length > LIMITS.summaryMax) e.summary = `Keep the description under ${LIMITS.summaryMax} characters.`;
+        if (unit === 'months') {
+            const n = Number(months);
+            if (!Number.isInteger(n) || n < 1 || n > 60) e.months = 'Enter a whole number of months between 1 and 60.';
+        } else {
+            const n = Number(minutes);
+            if (!Number.isInteger(n) || n < 1 || n > 43200) e.minutes = 'Enter a whole number of minutes between 1 and 43,200.';
+        }
+        return e;
     }
 
-    try {
-      const r = await fetch('/api/candidate/manifestos', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
-        body: JSON.stringify(body)
-      });
-      const j = await r.json();
-      if (!j.ok) {
-        setMsg(j.error || 'Failed to submit');
-        return;
-      }
-      setMsg('Submitted for admin approval.');
-      // Clear form
-      setTitle(''); setSummary('');
-      setTargetMonths(''); setTargetMinutes(''); setDurationUnit('months');
-      load();
-    } catch {
-      setMsg('Network error');
+    function review(ev) {
+        ev.preventDefault();
+        setFormError('');
+        const e = validate();
+        setErrors(e);
+        if (Object.keys(e).length) {
+            formRef.current?.querySelector('[aria-invalid="true"]')?.focus();
+            return;
+        }
+        setConfirming(true);
     }
-  }
 
-  return (
-    <div className="space-y-6">
-      <h1 className="text-white text-xl font-semibold">Manifestos</h1>
+    async function submit() {
+        setSubmitting(true);
+        setFormError('');
+        const body = { title: title.trim(), summary: summary.trim(), durationUnit: unit };
+        if (unit === 'months') body.targetWindowMonths = Number(months);
+        else body.targetWindowMinutes = Number(minutes);
+        try {
+            const r = await fetch('/api/candidate/manifestos', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify(body),
+            });
+            const j = await r.json();
+            if (!j.ok) {
+                setFormError(j.error || 'Your manifesto wasn’t submitted. Please try again.');
+                setConfirming(false);
+                return;
+            }
+            setConfirming(false);
+            setTitle('');
+            setSummary('');
+            setMonths('');
+            setMinutes('');
+            setUnit('months');
+            notify('Manifesto submitted. The election office will review it.');
+            load();
+        } catch {
+            setFormError('We couldn’t reach the server. Please try again.');
+            setConfirming(false);
+        } finally {
+            setSubmitting(false);
+        }
+    }
 
-      {/* Create */}
-      <div className="rounded-2xl border border-[#232323] bg-[#171717] p-4 space-y-4">
-        <h2 className="text-white font-semibold">Create a New Manifesto</h2>
+    const counts = list.reduce((acc, m) => ({ ...acc, [m.status]: (acc[m.status] || 0) + 1 }), {});
 
-        {/* Title */}
-        <label className="flex flex-col gap-1">
-          <span className="text-[#A1A1A1] text-sm">
-            Manifesto Title <span className="text-red-400">*</span>
-          </span>
-          <input
-            value={title}
-            onChange={e => setTitle(e.target.value)}
-            placeholder="e.g., Clean Water for Ward 5"
-            className="w-full bg-[#0F0F0F] border border-[#2A2A2A] rounded-xl px-3 py-2 text-[#EDEDED]"
-          />
-          <small className="text-[#6B6B6B]">Min {REQUIRED.title} characters</small>
-        </label>
+    return (
+        <>
+            <PageHeader
+                title="Manifestos"
+                description="Your written commitments. Each one is reviewed by the election office before voters can see it."
+                actions={
+                    <Button onClick={() => { formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); titleRef.current?.focus({ preventScroll: true }); }}>
+                        <Plus className="h-4 w-4" aria-hidden="true" /> Write a manifesto
+                    </Button>
+                }
+            />
 
-        {/* Summary */}
-        <label className="flex flex-col gap-1">
-          <span className="text-[#A1A1A1] text-sm">
-            Why this matters (Description) <span className="text-red-400">*</span>
-          </span>
-          <textarea
-            value={summary}
-            onChange={e => setSummary(e.target.value)}
-            rows={5}
-            placeholder="Explain the problem, your plan, expected benefits for citizens…"
-            className="w-full bg-[#0F0F0F] border border-[#2A2A2A] rounded-xl px-3 py-2 text-[#EDEDED]"
-          />
-          <small className="text-[#6B6B6B]">Min {REQUIRED.summary} characters</small>
-        </label>
-
-        {/* Duration Toggle */}
-        <div>
-          <div className="text-[#A1A1A1] text-sm mb-1">Commitment Window</div>
-          <div className="flex items-center gap-4 mb-2">
-            <label className="flex items-center gap-2">
-              <input
-                type="radio"
-                name="durUnit"
-                value="months"
-                checked={durationUnit === 'months'}
-                onChange={() => setDurationUnit('months')}
-              />
-              <span className="text-[#EDEDED]">Months</span>
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="radio"
-                name="durUnit"
-                value="minutes"
-                checked={durationUnit === 'minutes'}
-                onChange={() => setDurationUnit('minutes')}
-              />
-              <span className="text-[#EDEDED]">Minutes (testing)</span>
-            </label>
-          </div>
-
-          {durationUnit === 'months' ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-              <label className="flex flex-col gap-1">
-                <span className="text-[#A1A1A1] text-sm">Target Duration (Months)</span>
-                <input
-                  type="number"
-                  value={targetMonths}
-                  min={1}
-                  onChange={(e) => setTargetMonths(e.target.value)}
-                  placeholder="e.g., 6"
-                  className="bg-[#0F0F0F] border border-[#2A2A2A] rounded-xl px-3 py-2 text-[#EDEDED]"
+            <Card className="mb-8">
+                <CardHeader
+                    title="Your manifestos"
+                    description={list.length ? `${counts.approved || 0} approved · ${counts.pending || 0} awaiting review · ${counts.rejected || 0} rejected` : undefined}
                 />
-              </label>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-              <label className="flex flex-col gap-1">
-                <span className="text-[#A1A1A1] text-sm">Target Duration (Minutes)</span>
-                <input
-                  type="number"
-                  value={targetMinutes}
-                  min={1}
-                  onChange={(e) => setTargetMinutes(e.target.value)}
-                  placeholder="e.g., 5"
-                  className="bg-[#0F0F0F] border border-[#2A2A2A] rounded-xl px-3 py-2 text-[#EDEDED]"
-                />
-              </label>
-            </div>
-          )}
-        </div>
+                {state === 'loading' && <CardBody><Loading rows={2} label="Loading manifestos…" /></CardBody>}
+                {state === 'error' && (
+                    <CardBody>
+                        <Alert tone="danger" action={<Button variant="secondary" size="sm" onClick={load}>Try again</Button>}>We couldn’t load your manifestos.</Alert>
+                    </CardBody>
+                )}
+                {state === 'ready' && (
+                    <DataTable
+                        caption="Your manifestos"
+                        rows={list}
+                        empty={<EmptyState icon={FileText} title="You haven’t written any manifestos yet">Use the form below to write your first commitment.</EmptyState>}
+                        columns={[
+                            {
+                                key: 'title', header: 'Manifesto', primary: true,
+                                cell: (m) => (
+                                    <div className="min-w-0 max-w-xl">
+                                        <p className="font-medium text-ink">{m.title}</p>
+                                        {m.summary && <p className="mt-0.5 line-clamp-2 text-sm font-normal text-ink-3">{m.summary}</p>}
+                                    </div>
+                                ),
+                            },
+                            { key: 'status', header: 'Status', cell: (m) => <StatusBadge status={m.status} /> },
+                            { key: 'window', header: 'Deadline', nowrap: true, cell: (m) => windowLabel(m) },
+                            { key: 'due', header: 'Due by', nowrap: true, cell: (m) => (dueDate(m) ? formatDate(dueDate(m)) : '—') },
+                            { key: 'created', header: 'Submitted', nowrap: true, cell: (m) => formatDate(m.createdAt) },
+                        ]}
+                    />
+                )}
+            </Card>
 
-        {/* Submit */}
-        <button
-          onClick={submit}
-          className="px-4 py-2 rounded-lg bg-[#C9F300] text-black font-medium hover:opacity-90"
-        >
-          Submit for Admin Approval
-        </button>
-        {msg && <span className="text-[#9EFF00] text-sm ml-3">{msg}</span>}
-      </div>
+            <Card className="scroll-mt-24" id="new-manifesto">
+                <CardHeader title="Write a manifesto" description="Be specific: what you’ll do, where, and how voters will know it’s done." />
+                <CardBody>
+                    <form ref={formRef} noValidate onSubmit={review} className="max-w-2xl space-y-5">
+                        {formError && <Alert tone="danger">{formError}</Alert>}
 
-      {/* List */}
-      <div className="rounded-2xl border border-[#232323] bg-[#171717] overflow-x-auto">
-        <table className="min-w-full text-sm">
-          <thead className="bg-[#1b1b1b] text-[#A1A1A1]">
-            <tr>
-              <Th text="Title" />
-              <Th text="Status" />
-              <Th text="Duration" />
-              <Th text="Due Date" />
-              <Th text="Created" />
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={5} className="p-6 text-center text-[#A1A1A1]">Loading…</td></tr>
-            ) : list.length === 0 ? (
-              <tr><td colSpan={5} className="p-6 text-center text-[#A1A1A1]">No manifestos</td></tr>
-            ) : (
-              list.map((m) => {
-                const info = fmtDue(m) || {};
-                return (
-                  <tr key={m._id} className="border-t border-[#232323] hover:bg-[#1c1c1c]">
-                    <Td className="text-white">{m.title}</Td>
-                    <Td className="capitalize">{m.status}</Td>
-                    <Td className="text-[#EDEDED]">
-                      {m.targetWindowMinutes
-                        ? `${m.targetWindowMinutes} minute(s)`
-                        : m.targetWindowMonths
-                          ? `${m.targetWindowMonths} month(s)`
-                          : '—'}
-                    </Td>
-                    <Td className="text-[#EDEDED]">
-                      {info.due ? new Date(info.due).toLocaleString() : '—'}
-                    </Td>
-                    <Td className="text-[#EDEDED]">{new Date(m.createdAt).toLocaleString()}</Td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
+                        <Field id="m-title" label="Title" hint="A short promise voters can remember." error={errors.title}>
+                            <Input ref={titleRef} id="m-title" hint error={errors.title} value={title} maxLength={LIMITS.titleMax + 20} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Clean drinking water for every household" />
+                            <p className="mt-1 text-right text-xs"><Counter value={title.trim().length} max={LIMITS.titleMax} /></p>
+                        </Field>
 
-/* small UI helpers */
-function Th({ text }) {
-  return <th className="text-left px-4 py-3 font-medium">{text}</th>;
-}
-function Td({ children, className = '' }) {
-  return <td className={`px-4 py-3 text-[#EDEDED] ${className}`}>{children}</td>;
+                        <Field id="m-summary" label="What you’ll do and why" hint="The problem, your plan, and the benefit to residents." error={errors.summary}>
+                            <Textarea id="m-summary" hint error={errors.summary} value={summary} rows={6} onChange={(e) => setSummary(e.target.value)} />
+                            <p className="mt-1 text-right text-xs"><Counter value={summary.trim().length} max={LIMITS.summaryMax} /></p>
+                        </Field>
+
+                        {unit === 'months' ? (
+                            <Field id="m-months" label="Deadline" hint="Months after taking office by which this will be delivered." error={errors.months}>
+                                <div className="flex items-center gap-3">
+                                    <Input id="m-months" hint error={errors.months} type="number" inputMode="numeric" min={1} max={60} value={months} onChange={(e) => setMonths(e.target.value)} className="max-w-[8rem]" />
+                                    <span className="text-ink-2">months</span>
+                                </div>
+                            </Field>
+                        ) : (
+                            <Field id="m-minutes" label="Deadline (test)" hint="Minutes from submission. Only for demonstrating petitions." error={errors.minutes}>
+                                <div className="flex items-center gap-3">
+                                    <Input id="m-minutes" hint error={errors.minutes} type="number" inputMode="numeric" min={1} value={minutes} onChange={(e) => setMinutes(e.target.value)} className="max-w-[8rem]" />
+                                    <span className="text-ink-2">minutes</span>
+                                </div>
+                            </Field>
+                        )}
+
+                        <details className="rounded-md border border-line bg-canvas px-4 py-2" open={unit === 'minutes'}>
+                            <summary className="min-h-9 pointer-coarse:min-h-11 cursor-pointer py-1 text-sm font-semibold text-ink-2">Testing options</summary>
+                            <label className="flex min-h-11 cursor-pointer items-center gap-3 py-2 text-sm text-ink">
+                                <input type="checkbox" className="h-5 w-5" checked={unit === 'minutes'} onChange={(e) => setUnit(e.target.checked ? 'minutes' : 'months')} />
+                                Set the deadline in minutes, so petitions can be tried out without waiting months
+                            </label>
+                        </details>
+
+                        <div className="flex flex-col gap-3 border-t border-line pt-5 sm:flex-row sm:items-center">
+                            <Button type="submit" size="lg">Review and submit</Button>
+                            <p className="text-sm text-ink-3">You can’t edit a manifesto after submitting it, so you’ll see a preview first.</p>
+                        </div>
+                    </form>
+                </CardBody>
+            </Card>
+
+            <ConfirmDialog
+                open={confirming}
+                onCancel={() => setConfirming(false)}
+                onConfirm={submit}
+                loading={submitting}
+                title="Submit this manifesto?"
+                description="It goes to the election office for review. You won’t be able to edit it afterwards."
+                confirmLabel="Submit for review"
+                cancelLabel="Keep editing"
+            >
+                <div className="rounded-md border border-line bg-canvas p-4">
+                    <p className="font-semibold text-ink">{title.trim()}</p>
+                    <p className="mt-2 whitespace-pre-wrap text-[15px] text-ink-2">{summary.trim()}</p>
+                    <p className="mt-3 text-sm text-ink-3">
+                        Deadline: {unit === 'months' ? `${months} month${Number(months) === 1 ? '' : 's'} after taking office` : `${minutes} minutes (test)`}
+                    </p>
+                </div>
+            </ConfirmDialog>
+        </>
+    );
 }

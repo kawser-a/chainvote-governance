@@ -19,7 +19,8 @@ export async function PATCH(req, { params }) {
     const { id } = params;
 
     const { status } = await req.json();
-    const allowed = ['open', 'under_review', 'verified', 'rejected', 'resolved'];
+    // Keep in step with the enum on the Petition model.
+    const allowed = ['open', 'under_review', 'accepted', 'rejected', 'dismissed'];
     if (!allowed.includes(status)) {
       return NextResponse.json({ ok: false, error: 'Invalid status' }, { status: 400 });
     }

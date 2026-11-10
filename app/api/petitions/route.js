@@ -214,7 +214,23 @@ export async function GET(req) {
     if (electionId) q.electionId = electionId;
 
     const items = await Petition.find(q).sort({ createdAt: -1 }).lean();
-    return NextResponse.json({ ok: true, data: items });
+
+    // Attach readable names so the voter sees "what" they petitioned, not database IDs.
+    const ids = (k) => [...new Set(items.map(p => String(p[k])).filter(Boolean))];
+    const [elections, candidates, manifestos] = await Promise.all([
+      Election.find({ _id: { $in: ids('electionId') } }).select('name').lean(),
+      Candidate.find({ _id: { $in: ids('candidateId') } }).select('name partyName independent').lean(),
+      Manifesto.find({ _id: { $in: ids('manifestoId') } }).select('title').lean(),
+    ]);
+    const byId = (list) => Object.fromEntries(list.map(x => [String(x._id), x]));
+    const E = byId(elections), C = byId(candidates), M = byId(manifestos);
+    const data = items.map(p => ({
+      ...p,
+      electionName: E[String(p.electionId)]?.name || null,
+      candidateName: C[String(p.candidateId)]?.name || null,
+      manifestoTitle: M[String(p.manifestoId)]?.title || null,
+    }));
+    return NextResponse.json({ ok: true, data });
   } catch (e) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   }

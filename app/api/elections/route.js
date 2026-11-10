@@ -59,7 +59,7 @@ export async function GET(req) {
 
     const now = new Date();
     const q = {
-      status: includePast ? { $in: ['scheduled', 'active', 'completed'] } : { $in: ['scheduled', 'active'] },
+      status: includePast ? { $in: ['scheduled', 'active', 'paused', 'completed'] } : { $in: ['scheduled', 'active', 'paused'] },
     };
 
     // If you only want recent past (e.g., last year)
