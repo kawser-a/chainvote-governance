@@ -234,7 +234,7 @@ export async function GET(req, ctx) {
     const nid = await voterNid();
     if (nid) {
       const mine = await Vote.find({ electionId: e._id, voterNid: nid })
-        .select({ manifestoId: 1, candidateId: 1, ballotItemId: 1, optionKey: 1, createdAt: 1 })
+        .select({ manifestoId: 1, candidateId: 1, ballotItemId: 1, optionKey: 1, createdAt: 1, hash: 1 })
         .lean();
       myVotes = mine.map(v => ({
         manifestoId: v.manifestoId ? String(v.manifestoId) : null,
@@ -242,6 +242,7 @@ export async function GET(req, ctx) {
         ballotItemId: v.ballotItemId ? String(v.ballotItemId) : null,
         optionKey: v.optionKey || null,
         createdAt: v.createdAt,
+        receipt: v.hash || null,
       }));
     }
 

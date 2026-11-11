@@ -1,8 +1,8 @@
 'use client';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Award, CalendarClock } from 'lucide-react';
+import { Award, CalendarClock, Trophy } from 'lucide-react';
 import {
-    Alert, Badge, Button, Card, CardBody, CardHeader, EmptyState, Field, Loading, PageHeader, Stat, StatusBadge, Textarea,
+    Alert, Badge, Button, Card, CardBody, CardHeader, EmptyState, Field, Loading, Meter, PageHeader, Stat, StatusBadge, Textarea, cx,
 } from '../ui/primitives';
 import { Dialog, useToast } from '../ui/interactive';
 import { electionPhase, formatDate, formatDateTime, titleCase } from '../ui/format';
@@ -12,22 +12,30 @@ function pct(n, total) {
 }
 
 /* A labelled horizontal bar: the number is always written out, the bar only reinforces it. */
-function ResultBar({ label, sub, votes, total, max, highlight }) {
-    const width = max ? Math.max(2, (votes / max) * 100) : 0;
+function ResultBar({ label, sub, votes, total, max, highlight, rank }) {
     return (
-        <li className="py-3">
-            <div className="flex items-baseline justify-between gap-3">
-                <div className="min-w-0">
-                    <p className="font-medium text-ink break-words">{label}</p>
-                    {sub && <p className="text-sm text-ink-3">{sub}</p>}
+        <li className="flex gap-3 py-3.5">
+            <span
+                className={cx(
+                    'mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold tabular-nums',
+                    highlight ? 'bg-accent text-on-accent' : 'bg-subtle text-ink-3'
+                )}
+                aria-hidden="true"
+            >
+                {highlight ? <Trophy className="h-3.5 w-3.5" /> : rank}
+            </span>
+            <div className="min-w-0 flex-1">
+                <div className="flex items-baseline justify-between gap-3">
+                    <div className="min-w-0">
+                        <p className="font-medium text-ink break-words">{label}</p>
+                        {sub && <p className="text-sm text-ink-3">{sub}</p>}
+                    </div>
+                    <p className="shrink-0 text-right text-sm tabular-nums">
+                        <span className="font-semibold text-ink">{votes.toLocaleString()}</span>
+                        <span className="text-ink-3"> · {pct(votes, total)}%</span>
+                    </p>
                 </div>
-                <p className="shrink-0 text-right text-sm tabular-nums">
-                    <span className="font-semibold text-ink">{votes.toLocaleString()}</span>
-                    <span className="text-ink-3"> · {pct(votes, total)}%</span>
-                </p>
-            </div>
-            <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-subtle" aria-hidden="true">
-                <div className={highlight ? 'h-full rounded-full bg-brand' : 'h-full rounded-full bg-ink-3/60'} style={{ width: `${width}%` }} />
+                <Meter value={votes} max={max || 1} tone={highlight ? 'accent' : 'muted'} label={`${label}: ${votes} votes`} className="mt-2 h-2.5" delay={rank * 80} />
             </div>
         </li>
     );
@@ -184,7 +192,8 @@ export default function ElectionResults({ id, back, allowPetitions = false }) {
                                         votes={m.votes}
                                         total={total}
                                         max={maxM}
-                                        highlight={i === 0}
+                                        highlight={m.votes > 0 && m.votes === maxM}
+                                        rank={i + 1}
                                     />
                                 ))}
                             </ol>
@@ -194,7 +203,7 @@ export default function ElectionResults({ id, back, allowPetitions = false }) {
             )}
 
             <section aria-labelledby="elected-heading" className="mb-8">
-                <h2 id="elected-heading" className="text-lg font-semibold text-ink">{phase === 'ended' ? 'Elected' : 'Currently leading'}</h2>
+                <h2 id="elected-heading" className="font-display text-2xl font-semibold text-ink">{phase === 'ended' ? 'Elected' : 'Currently leading'}</h2>
                 <p className="mb-4 text-sm text-ink-2">
                     The candidate with the most votes in each seat, and progress on what they committed to.
                 </p>
@@ -205,10 +214,10 @@ export default function ElectionResults({ id, back, allowPetitions = false }) {
                         {winners.map((w, idx) => {
                             const party = w.candidate?.partyName && w.candidate.partyName !== 'Independent' ? w.candidate.partyName : 'Independent';
                             return (
-                                <Card key={idx}>
+                                <Card key={idx} className="animate-rise">
                                     <div className="flex flex-col gap-2 border-b border-line px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
                                         <div className="flex items-center gap-3">
-                                            <Award className="h-6 w-6 shrink-0 text-brand" aria-hidden="true" />
+                                            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent"><Award className="h-5 w-5" aria-hidden="true" /></span>
                                             <div>
                                                 <p className="text-lg font-semibold text-ink">{w.candidate?.name}</p>
                                                 <p className="text-sm text-ink-3">{w.seat} · {party}</p>
@@ -233,7 +242,7 @@ export default function ElectionResults({ id, back, allowPetitions = false }) {
                                                             {m.summary && <p className="mt-1 text-sm text-ink-2">{m.summary}</p>}
                                                             <p className="mt-1 inline-flex items-center gap-1 text-sm text-ink-3">
                                                                 <CalendarClock className="h-4 w-4" aria-hidden="true" />
-                                                                {m.dueDate ? `Due ${formatDate(m.dueDate)}` : 'No deadline set'}
+                                                                {m.dueDate ? `${overdue ? 'Was due' : 'Due'} ${formatDate(m.dueDate)}` : 'No deadline set'}
                                                             </p>
                                                         </div>
                                                         <div className="shrink-0 sm:pl-4">
@@ -262,7 +271,7 @@ export default function ElectionResults({ id, back, allowPetitions = false }) {
                     <CardBody className="py-1 sm:py-2">
                         <ol className="divide-y divide-line">
                             {byParty.map((p, i) => (
-                                <ResultBar key={p.partyName || i} label={p.partyName || 'Independent'} votes={p.votes} total={total} max={maxP} highlight={i === 0} />
+                                <ResultBar key={p.partyName || i} label={p.partyName || 'Independent'} votes={p.votes} total={total} max={maxP} highlight={p.votes > 0 && p.votes === maxP} rank={i + 1} />
                             ))}
                         </ol>
                     </CardBody>
@@ -277,20 +286,29 @@ export default function ElectionResults({ id, back, allowPetitions = false }) {
                 footer={
                     <>
                         <Button variant="secondary" onClick={() => setTarget(null)} disabled={submitting}>Cancel</Button>
-                        <Button variant="danger" onClick={submitPetition} loading={submitting} loadingText="Filing…">File petition</Button>
+                        <Button onClick={submitPetition} loading={submitting} loadingText="Filing…" disabled={reason.trim().length < 10}>File petition</Button>
                     </>
                 }
             >
                 {target && (
                     <div className="space-y-4">
-                        <div className="rounded-md border border-line bg-canvas px-4 py-3">
+                        <div className="rounded-xl border border-line bg-canvas px-4 py-3">
                             <p className="text-xs font-semibold uppercase tracking-wide text-ink-3">Commitment</p>
                             <p className="mt-0.5 font-medium text-ink">{target.title}</p>
                             <p className="text-sm text-ink-2">{target.candidate}</p>
                         </div>
                         <Field id="petition-reason" label="What hasn’t been delivered?" hint="Be specific: what, where and since when." error={reasonError}>
-                            <Textarea id="petition-reason" hint error={reasonError} value={reason} onChange={(ev) => setReason(ev.target.value)} rows={4} maxLength={1000} />
+                            <Textarea id="petition-reason" hint error={reasonError} value={reason} onChange={(ev) => { setReason(ev.target.value); setReasonError(''); }} rows={4} maxLength={1000} placeholder="e.g. The water line on Road 4 still isn’t connected, six months after the deadline." />
+                            <p className="mt-1.5 flex justify-between gap-3 text-xs text-ink-3" aria-live="polite">
+                                <span>{reason.trim().length < 10 ? `${10 - reason.trim().length} more character${10 - reason.trim().length === 1 ? '' : 's'} needed` : 'Looks good.'}</span>
+                                <span className="tabular-nums">{reason.length}/1000</span>
+                            </p>
                         </Field>
+                        <ol className="space-y-1.5 rounded-xl border border-line bg-raised px-4 py-3 text-sm text-ink-2">
+                            <li><span className="font-semibold text-ink">1.</span> The election office reads your petition.</li>
+                            <li><span className="font-semibold text-ink">2.</span> They accept, reject or dismiss it. You’ll see the decision under My petitions.</li>
+                            <li><span className="font-semibold text-ink">3.</span> Enough accepted petitions and the candidate can be removed.</li>
+                        </ol>
                         {submitError && <Alert tone="danger">{submitError}</Alert>}
                     </div>
                 )}

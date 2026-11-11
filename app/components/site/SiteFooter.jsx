@@ -28,7 +28,7 @@ const GROUPS = [
 
 export default function SiteFooter() {
     return (
-        <footer className="border-t border-line bg-surface">
+        <footer className="border-t border-line bg-surface/60">
             <div className="mx-auto grid max-w-6xl grid-cols-2 gap-x-6 gap-y-10 px-4 py-12 sm:px-6 md:grid-cols-[1.4fr_repeat(3,1fr)]">
                 <div className="col-span-2 max-w-xs md:col-span-1">
                     <Logo />
@@ -38,11 +38,11 @@ export default function SiteFooter() {
                 </div>
                 {GROUPS.map((g) => (
                     <div key={g.title}>
-                        <h2 className="text-sm font-semibold text-ink">{g.title}</h2>
+                        <h2 className="text-xs font-semibold uppercase tracking-[0.12em] text-ink-3">{g.title}</h2>
                         <ul className="mt-3 space-y-1">
                             {g.links.map((l) => (
                                 <li key={l.href}>
-                                    <Link href={l.href} className="inline-flex min-h-9 pointer-coarse:min-h-11 items-center text-sm text-ink-2 hover:text-ink hover:underline">
+                                    <Link href={l.href} className="inline-flex min-h-9 pointer-coarse:min-h-11 items-center text-sm text-ink-2 transition-colors hover:text-brand">
                                         {l.label}
                                     </Link>
                                 </li>
